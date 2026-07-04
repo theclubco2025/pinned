@@ -1,4 +1,5 @@
--- Stores table
+-- ── Tables ────────────────────────────────────────────────────────────────
+
 CREATE TABLE IF NOT EXISTS stores (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   name TEXT NOT NULL,
@@ -8,7 +9,6 @@ CREATE TABLE IF NOT EXISTS stores (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Products table
 CREATE TABLE IF NOT EXISTS products (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   store_id UUID REFERENCES stores(id) ON DELETE CASCADE NOT NULL,
@@ -20,11 +20,11 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Row Level Security
+-- ── Row Level Security ────────────────────────────────────────────────────
+
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 
--- Stores: anyone can read, authenticated owner can write
 CREATE POLICY "Public read stores"
   ON stores FOR SELECT USING (true);
 
@@ -36,7 +36,6 @@ CREATE POLICY "Owner update store"
   ON stores FOR UPDATE
   USING (owner_email = auth.jwt() ->> 'email');
 
--- Products: anyone can read, store owner can write
 CREATE POLICY "Public read products"
   ON products FOR SELECT USING (true);
 
@@ -56,7 +55,26 @@ CREATE POLICY "Owner update products"
     )
   );
 
--- Storage bucket: create manually in Supabase dashboard
--- Bucket name: pinned-assets
--- Set to PUBLIC so floor plan images are accessible via public URL
--- Add Storage policy: authenticated users can upload to floor-plans/{storeId}.*
+-- ── Storage bucket + policies ─────────────────────────────────────────────
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('pinned-assets', 'pinned-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE POLICY "Public read floor plans"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'pinned-assets');
+
+CREATE POLICY "Authenticated upload floor plans"
+  ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'pinned-assets'
+    AND auth.role() = 'authenticated'
+  );
+
+CREATE POLICY "Authenticated update floor plans"
+  ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'pinned-assets'
+    AND auth.role() = 'authenticated'
+  );

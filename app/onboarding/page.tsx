@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase-browser'
 
 export default function OnboardingPage() {
@@ -80,6 +81,12 @@ export default function OnboardingPage() {
         <p className="mt-4 text-center text-xs text-zinc-400">
           No password — we'll email you a sign-in link.
         </p>
+
+        <div className="mt-6 text-center">
+          <Link href="/demo" className="text-sm text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
+            Preview the app without signing in →
+          </Link>
+        </div>
       </div>
     </main>
   )

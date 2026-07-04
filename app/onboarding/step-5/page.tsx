@@ -8,6 +8,14 @@ export default function Step5Page() {
   const [store, setStore] = useState<Store | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [qrReady, setQrReady] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  async function copyLink() {
+    if (!store) return
+    await navigator.clipboard.writeText(`${window.location.origin}/${store.qr_slug}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     fetch('/api/stores')
@@ -59,9 +67,12 @@ export default function Step5Page() {
           </div>
         </div>
 
-        <p className="mb-6 break-all rounded-lg bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-600">
-          {storeUrl}
-        </p>
+        <button
+          onClick={copyLink}
+          className="mb-6 w-full break-all rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-600 transition-colors hover:bg-zinc-100"
+        >
+          {copied ? '✓ Copied to clipboard' : storeUrl}
+        </button>
 
         <div className="flex flex-col gap-3">
           <Link

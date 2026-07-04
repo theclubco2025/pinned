@@ -56,7 +56,12 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">Pinned</h1>
-          <p className="mt-2 text-zinc-500">Set up your store's smart map in minutes.</p>
+          <p className="mt-2 text-zinc-500">
+            Turn your store into a map customers can ask questions to. Set it up in minutes.
+          </p>
+          <p className="mt-3 text-xs text-zinc-400">
+            Grocery · hardware · pharmacy · garden center · liquor · bookstore — any store with aisles.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

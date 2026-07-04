@@ -7,6 +7,8 @@ import type { Store } from '@/types'
 
 interface AskResult {
   productId: string | null
+  name: string | null
+  aisle_label: string | null
   x_pct: number | null
   y_pct: number | null
   message: string
@@ -15,24 +17,56 @@ interface AskResult {
 interface Message {
   role: 'user' | 'assistant'
   text: string
-  result?: AskResult
+  pending?: boolean
 }
 
 export default function CustomerView({ store }: { store: Store }) {
   const [messages, setMessages] = useState<Message[]>([])
+  const [loading, setLoading] = useState(false)
   const [activePin, setActivePin] = useState<{ x_pct: number; y_pct: number; label: string } | null>(null)
 
-  function handleResult(question: string, result: AskResult) {
+  async function handleAsk(question: string) {
+    setLoading(true)
     setMessages(prev => [
       ...prev,
       { role: 'user', text: question },
-      { role: 'assistant', text: result.message, result },
+      { role: 'assistant', text: 'Looking…', pending: true },
     ])
 
-    if (result.x_pct != null && result.y_pct != null) {
-      setActivePin({ x_pct: result.x_pct, y_pct: result.y_pct, label: '' })
-    } else {
-      setActivePin(null)
+    try {
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, storeId: store.id }),
+      })
+      const result: AskResult = await res.json()
+
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = { role: 'assistant', text: result.message }
+        return next
+      })
+
+      if (result.x_pct != null && result.y_pct != null) {
+        setActivePin({
+          x_pct: result.x_pct,
+          y_pct: result.y_pct,
+          label: result.aisle_label || result.name || '',
+        })
+      } else {
+        setActivePin(null)
+      }
+    } catch {
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = {
+          role: 'assistant',
+          text: 'Sorry, something went wrong. Please try again.',
+        }
+        return next
+      })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -50,7 +84,7 @@ export default function CustomerView({ store }: { store: Store }) {
 
         {messages.length === 0 && (
           <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
-            Ask me where to find anything — milk, bread, batteries…
+            Ask me where to find anything — try &ldquo;where&rsquo;s the milk?&rdquo; or &ldquo;something to clean windows.&rdquo;
           </div>
         )}
 
@@ -63,7 +97,9 @@ export default function CustomerView({ store }: { store: Store }) {
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
                   ? 'bg-black text-white'
-                  : 'bg-zinc-100 text-zinc-800'
+                  : msg.pending
+                    ? 'bg-zinc-100 text-zinc-400 animate-pulse'
+                    : 'bg-zinc-100 text-zinc-800'
               }`}
             >
               {msg.text}
@@ -73,10 +109,7 @@ export default function CustomerView({ store }: { store: Store }) {
       </div>
 
       <div className="border-t border-zinc-100 px-4 py-4">
-        <ChatInput
-          storeId={store.id}
-          onResult={(result, question) => handleResult(question ?? '', result)}
-        />
+        <ChatInput disabled={loading} onSubmit={handleAsk} />
       </div>
     </main>
   )

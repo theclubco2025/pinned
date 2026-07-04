@@ -2,36 +2,19 @@
 
 import { useState } from 'react'
 
-interface AskResult {
-  productId: string | null
-  x_pct: number | null
-  y_pct: number | null
-  message: string
-}
-
 interface Props {
-  storeId: string
-  onResult: (result: AskResult, question: string) => void
+  disabled?: boolean
+  onSubmit: (question: string) => void
 }
 
-export default function ChatInput({ storeId, onResult }: Props) {
+export default function ChatInput({ disabled, onSubmit }: Props) {
   const [question, setQuestion] = useState('')
-  const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!question.trim() || loading) return
-
     const q = question.trim()
-    setLoading(true)
-    const res = await fetch('/api/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: q, storeId }),
-    })
-    const data: AskResult = await res.json()
-    onResult(data, q)
-    setLoading(false)
+    if (!q || disabled) return
+    onSubmit(q)
     setQuestion('')
   }
 
@@ -42,15 +25,14 @@ export default function ChatInput({ storeId, onResult }: Props) {
         value={question}
         onChange={e => setQuestion(e.target.value)}
         placeholder="Where can I find…"
-        disabled={loading}
-        className="flex-1 rounded-full border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black disabled:opacity-60"
+        className="flex-1 rounded-full border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
       />
       <button
         type="submit"
-        disabled={!question.trim() || loading}
+        disabled={!question.trim() || disabled}
         className="rounded-full bg-black px-5 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
       >
-        {loading ? '…' : 'Ask'}
+        {disabled ? '…' : 'Ask'}
       </button>
     </form>
   )

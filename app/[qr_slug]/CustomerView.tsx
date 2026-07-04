@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import StoreMap from '@/components/customer/StoreMap'
 import ChatInput from '@/components/customer/ChatInput'
 import type { Store } from '@/types'
@@ -110,6 +111,11 @@ export default function CustomerView({ store }: { store: Store }) {
 
       <div className="border-t border-zinc-100 px-4 py-4">
         <ChatInput disabled={loading} onSubmit={handleAsk} />
+      </div>
+
+      <div className="flex items-center justify-center gap-2 bg-black py-2">
+        <span className="text-[10px] uppercase tracking-wide text-zinc-500">Powered by</span>
+        <Image src="/logo.png" alt="Pinned" width={56} height={18} />
       </div>
     </main>
   )

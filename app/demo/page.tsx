@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
-// ─── Floor plan SVG (encoded as data URL so <img> and click math both work) ───
+// ─── Floor plan SVG (data URL so <img> rendering and click math both work) ──
 
 const FLOOR_SVG = `<svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" font-family="system-ui,sans-serif">
   <rect width="600" height="400" fill="#f9fafb"/>
@@ -32,75 +33,101 @@ const FLOOR_SVG = `<svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg"
 
 const FLOOR_URL = `data:image/svg+xml,${encodeURIComponent(FLOOR_SVG)}`
 
-// ─── Demo data ──────────────────────────────────────────────────────────────
+// ─── Types + defaults ───────────────────────────────────────────────────────
 
-type Product = {
-  id: string
+interface DemoProduct {
+  id: number
   name: string
   x_pct: number | null
   y_pct: number | null
   tagged: boolean
-  aisle_label: string | null
 }
 
-const SEED_PRODUCTS: Product[] = [
-  { id: '1', name: 'Whole Milk',      x_pct: 12, y_pct: 36, tagged: true,  aisle_label: 'Dairy'   },
-  { id: '2', name: 'Organic Eggs',    x_pct: 12, y_pct: 50, tagged: true,  aisle_label: 'Dairy'   },
-  { id: '3', name: 'Chicken Breast',  x_pct: 33, y_pct: 34, tagged: true,  aisle_label: 'Meat'    },
-  { id: '4', name: 'Sourdough Bread', x_pct: 87, y_pct: 36, tagged: true,  aisle_label: 'Bakery'  },
-  { id: '5', name: 'Orange Juice',    x_pct: 87, y_pct: 62, tagged: true,  aisle_label: 'Drinks'  },
-  { id: '6', name: 'WD-40',          x_pct: 55, y_pct: 46, tagged: true,  aisle_label: 'Aisle 2' },
-  { id: '7', name: 'Cheddar Cheese',  x_pct: null, y_pct: null, tagged: false, aisle_label: null },
-  { id: '8', name: 'Pasta',           x_pct: null, y_pct: null, tagged: false, aisle_label: null },
-  { id: '9', name: 'Batteries',       x_pct: null, y_pct: null, tagged: false, aisle_label: null },
+const DEFAULT_STORE = "Sullivan's Grocery"
+const DEFAULT_PRODUCTS = [
+  'Whole Milk',
+  'Organic Eggs',
+  'Sourdough Bread',
+  'Chicken Breast',
+  'Orange Juice',
+  'WD-40',
+  'Batteries',
+  'Cheddar Cheese',
+].join('\n')
+
+// Sensible in-aisle spots for the auto-place shortcut (percent coords on the demo floor plan)
+const AUTO_SPOTS: [number, number][] = [
+  [12, 30], [12, 55], [33, 22], [33, 52], [45, 40], [55, 30],
+  [55, 55], [71, 35], [88, 25], [88, 58], [12, 68], [33, 65],
 ]
 
-const SAMPLE_TEXT = SEED_PRODUCTS.map(p => p.name).join('\n')
-
-// Products that need tagging in the demo
-const TO_TAG = SEED_PRODUCTS.filter(p => !p.tagged)
-
-function clientMatch(q: string, products: Product[]): { product: Product | null; message: string } {
-  const lower = q.toLowerCase()
-  const hit = products.find(p => {
-    const n = p.name.toLowerCase()
-    return lower.includes(n) || n.split(' ').some(w => w.length > 3 && lower.includes(w))
-  })
-  if (!hit) return { product: null, message: "Not mapped yet — ask a team member." }
-  if (!hit.tagged || hit.x_pct == null)
-    return { product: null, message: `We carry ${hit.name} but the exact spot isn't pinned yet — ask a team member.` }
-  return { product: hit, message: `${hit.name} is in the ${hit.aisle_label} section — see the pin on the map!` }
+function parseProducts(text: string): string[] {
+  const lines = text.includes('\n') ? text.split('\n') : text.split(',')
+  return [...new Set(lines.map(l => l.trim()).filter(Boolean))]
 }
 
-// ─── Main demo wizard ────────────────────────────────────────────────────────
+function matchProduct(question: string, products: DemoProduct[]): DemoProduct | null {
+  const q = question.toLowerCase()
+  let best: { p: DemoProduct; score: number } | null = null
+  for (const p of products) {
+    const name = p.name.toLowerCase()
+    let score = 0
+    if (q.includes(name)) score = name.length * 2
+    else {
+      for (const w of name.split(/\s+/)) {
+        if (w.length > 2 && q.includes(w)) score += w.length
+      }
+    }
+    if (score > 0 && (!best || score > best.score)) best = { p, score }
+  }
+  return best?.p ?? null
+}
 
-const STEP_LABELS = ['Store setup', 'Add products', 'Tag items', 'Go live', 'Customer view']
+// ─── Demo wizard ─────────────────────────────────────────────────────────────
+
+const STEP_LABELS = ['Store', 'Products', 'Tag', 'Go live', 'Customer']
 
 export default function DemoPage() {
   const [step, setStep] = useState(0)
 
-  // Speed-tagger state
-  const [products, setProducts] = useState<Product[]>(SEED_PRODUCTS)
-  const [tagIdx, setTagIdx] = useState(0)
+  // Owner inputs — fully editable
+  const [storeName, setStoreName] = useState(DEFAULT_STORE)
+  const [productText, setProductText] = useState(DEFAULT_PRODUCTS)
+  const [products, setProducts] = useState<DemoProduct[]>([])
+
+  // Tagging
   const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
-  // Customer-view state
+  // Done screen
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Customer view
   const [chatQ, setChatQ] = useState('')
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
-  const [activePin, setActivePin] = useState<{ x_pct: number; y_pct: number; label: string } | null>(null)
+  const [activePin, setActivePin] = useState<{ x: number; y: number; label: string } | null>(null)
 
-  // QR canvas
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const untagged = products.filter(p => !p.tagged)
+  const taggedCount = products.length - untagged.length
+  const current = untagged[0]
+
   useEffect(() => {
     if (step === 3 && canvasRef.current) {
-      const url = typeof window !== 'undefined' ? `${window.location.origin}/demo` : 'https://pinned.app/demo'
-      import('qrcode').then(QR => QR.toCanvas(canvasRef.current!, url, { width: 200, margin: 2 }))
+      const url = `${window.location.origin}/demo`
+      import('qrcode').then(QR => QR.toCanvas(canvasRef.current!, url, { width: 220, margin: 2 }))
     }
   }, [step])
 
-  const currentProduct = TO_TAG[tagIdx]
-  const tagged = TO_TAG.length - (TO_TAG.length - tagIdx)
+  // ── Handlers ──
+
+  function startTagging() {
+    const names = parseProducts(productText)
+    if (!names.length) return
+    setProducts(names.map((name, i) => ({ id: i, name, x_pct: null, y_pct: null, tagged: false })))
+    setPendingPin(null)
+    setStep(2)
+  }
 
   function handleFloorClick(e: React.MouseEvent<HTMLImageElement>) {
     const rect = imgRef.current!.getBoundingClientRect()
@@ -111,57 +138,104 @@ export default function DemoPage() {
   }
 
   function confirmPin() {
-    if (!pendingPin || !currentProduct) return
-    setProducts(prev =>
-      prev.map(p =>
-        p.id === currentProduct.id
-          ? { ...p, x_pct: pendingPin.x, y_pct: pendingPin.y, tagged: true, aisle_label: 'Tagged' }
-          : p
-      )
-    )
+    if (!pendingPin || !current) return
+    setProducts(prev => prev.map(p =>
+      p.id === current.id ? { ...p, x_pct: pendingPin.x, y_pct: pendingPin.y, tagged: true } : p
+    ))
     setPendingPin(null)
-    if (tagIdx + 1 >= TO_TAG.length) { setStep(3); return }
-    setTagIdx(i => i + 1)
+    if (untagged.length <= 1) setStep(3)
   }
 
   function skipPin() {
+    if (!current) return
+    setProducts(prev => prev.map(p => (p.id === current.id ? { ...p, tagged: true } : p)))
     setPendingPin(null)
-    if (tagIdx + 1 >= TO_TAG.length) { setStep(3); return }
-    setTagIdx(i => i + 1)
+    if (untagged.length <= 1) setStep(3)
   }
 
-  function sendChat(e: React.FormEvent) {
-    e.preventDefault()
-    if (!chatQ.trim()) return
-    const q = chatQ.trim()
-    const { product, message } = clientMatch(q, products)
-    setMessages(prev => [...prev, { role: 'user', text: q }, { role: 'assistant', text: message }])
-    setActivePin(product && product.x_pct != null && product.y_pct != null
-      ? { x_pct: product.x_pct, y_pct: product.y_pct, label: product.aisle_label ?? '' }
-      : null)
+  function autoPlaceRest() {
+    setProducts(prev => {
+      let spot = 0
+      return prev.map(p => {
+        if (p.tagged) return p
+        const [x, y] = AUTO_SPOTS[spot % AUTO_SPOTS.length]
+        spot++
+        return {
+          ...p,
+          x_pct: x + (Math.random() * 6 - 3),
+          y_pct: y + (Math.random() * 6 - 3),
+          tagged: true,
+        }
+      })
+    })
+    setPendingPin(null)
+    setStep(3)
+  }
+
+  function askDemo(raw: string) {
+    const q = raw.trim()
+    if (!q) return
+    const hit = matchProduct(q, products)
+    let reply: string
+    if (!hit) {
+      reply = "It doesn't look like this store carries that — ask a team member to be sure."
+      setActivePin(null)
+    } else if (hit.x_pct == null || hit.y_pct == null) {
+      reply = `${storeName} carries ${hit.name}, but the exact spot isn't pinned yet — ask a team member.`
+      setActivePin(null)
+    } else {
+      reply = `Found it! ${hit.name} is pinned on the map — follow the pin.`
+      setActivePin({ x: hit.x_pct, y: hit.y_pct, label: hit.name })
+    }
+    setMessages(prev => [...prev, { role: 'user', text: q }, { role: 'assistant', text: reply }])
     setChatQ('')
   }
 
-  function copyLink() {
-    navigator.clipboard.writeText(window.location.href)
+  async function copyLink() {
+    await navigator.clipboard.writeText(`${window.location.origin}/demo`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
+
+  function restart() {
+    setStep(0)
+    setStoreName(DEFAULT_STORE)
+    setProductText(DEFAULT_PRODUCTS)
+    setProducts([])
+    setPendingPin(null)
+    setMessages([])
+    setActivePin(null)
+    setChatQ('')
+  }
+
+  // Example questions pulled from what the user actually entered
+  const suggestions = products.filter(p => p.x_pct != null).slice(0, 2)
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      {/* Demo banner */}
-      <div className="bg-black px-4 py-2 text-center text-xs font-medium text-white">
-        DEMO MODE — no account needed &nbsp;·&nbsp;
-        <Link href="/onboarding" className="underline underline-offset-2">Create a real store →</Link>
+      {/* Banner with logo */}
+      <div className="flex items-center justify-between bg-black px-4 py-3">
+        <Image src="/logo.png" alt="Pinned" width={92} height={29} priority />
+        <div className="text-xs text-zinc-400">
+          Demo — no account needed ·{' '}
+          <Link href="/onboarding" className="text-white underline underline-offset-2">
+            Create a real store →
+          </Link>
+        </div>
       </div>
 
       <div className="mx-auto max-w-lg px-4 py-8">
-        {/* Progress */}
+        {/* Progress rail */}
         <div className="mb-8 flex items-center gap-2">
           {STEP_LABELS.map((label, i) => (
-            <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <button
+              key={i}
+              onClick={() => { if (i < step) setStep(i) }}
+              className="flex flex-1 cursor-default flex-col items-center gap-1"
+            >
               <div className={`h-1.5 w-full rounded-full transition-colors ${i <= step ? 'bg-black' : 'bg-zinc-200'}`} />
               <span className={`text-xs ${i === step ? 'font-semibold text-black' : 'text-zinc-400'}`}>{label}</span>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -169,31 +243,37 @@ export default function DemoPage() {
         {step === 0 && (
           <div className="space-y-5">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 2 of 5</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 1 · Try it with your own store</p>
               <h1 className="text-2xl font-bold">Set up your store</h1>
+              <p className="mt-1 text-sm text-zinc-500">Type your real store name — the whole demo will use it.</p>
             </div>
-            <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
+            <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4">
               <div>
-                <label className="block mb-1 text-sm font-medium text-zinc-700">Store name</label>
+                <label className="mb-1 block text-sm font-medium text-zinc-700">Store name</label>
                 <input
-                  readOnly
-                  defaultValue="Sullivan's Grocery"
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm bg-zinc-50"
+                  value={storeName}
+                  onChange={e => setStoreName(e.target.value)}
+                  placeholder="e.g. Hank's Hardware"
+                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
                 />
               </div>
               <div>
-                <label className="block mb-2 text-sm font-medium text-zinc-700">Floor plan</label>
-                <div className="relative rounded-xl overflow-hidden border border-zinc-200">
+                <label className="mb-2 block text-sm font-medium text-zinc-700">Floor plan</label>
+                <div className="relative overflow-hidden rounded-xl border border-zinc-200">
                   <img src={FLOOR_URL} alt="Demo floor plan" className="w-full" />
-                  <div className="absolute top-2 right-2 rounded-lg bg-black/70 px-2 py-1 text-xs text-white">
-                    ✓ Uploaded
+                  <div className="absolute right-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs text-white">
+                    Sample floor plan
                   </div>
                 </div>
+                <p className="mt-2 text-xs text-zinc-400">
+                  In the real app you upload a photo or sketch of your own layout.
+                </p>
               </div>
             </div>
             <button
               onClick={() => setStep(1)}
-              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800"
+              disabled={!storeName.trim()}
+              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
             >
               Next: Add products →
             </button>
@@ -204,19 +284,24 @@ export default function DemoPage() {
         {step === 1 && (
           <div className="space-y-5">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 3 of 5</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 2 · One paste, one click</p>
               <h1 className="text-2xl font-bold">Add your products</h1>
-              <p className="mt-1 text-sm text-zinc-500">One per line. Copy-paste from a spreadsheet or just type them in.</p>
+              <p className="mt-1 text-sm text-zinc-500">
+                One per line (commas work too). Edit the list — put in what {storeName.trim() || 'your store'} actually sells.
+              </p>
             </div>
             <textarea
-              readOnly
-              defaultValue={SAMPLE_TEXT}
+              value={productText}
+              onChange={e => setProductText(e.target.value)}
+              placeholder={'Paste your products, one per line'}
               rows={10}
-              className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 font-mono text-sm resize-none"
+              className="w-full resize-none rounded-xl border border-zinc-300 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-black"
             />
+            <p className="text-xs text-zinc-400">{parseProducts(productText).length} products detected</p>
             <button
-              onClick={() => setStep(2)}
-              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800"
+              onClick={startTagging}
+              disabled={!parseProducts(productText).length}
+              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
             >
               Save & start tagging →
             </button>
@@ -224,33 +309,30 @@ export default function DemoPage() {
         )}
 
         {/* ── Step 2: Speed tagger ── */}
-        {step === 2 && (
+        {step === 2 && current && (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 4 of 5</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 3 · The 5-minute setup</p>
               <h1 className="text-2xl font-bold">Tag each product</h1>
-              <p className="mt-1 text-sm text-zinc-500">Tap where each item lives on the floor plan.</p>
+              <p className="mt-1 text-sm text-zinc-500">Tap the floor plan where each item lives, then confirm.</p>
             </div>
 
-            {/* Progress */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-zinc-500">{tagged} of {TO_TAG.length} tagged</span>
-              <div className="h-1.5 flex-1 rounded-full bg-zinc-100 overflow-hidden">
+              <span className="whitespace-nowrap text-sm text-zinc-500">{taggedCount} of {products.length} tagged</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
                 <div
-                  className="h-full bg-black rounded-full transition-all"
-                  style={{ width: `${(tagged / TO_TAG.length) * 100}%` }}
+                  className="h-full rounded-full bg-black transition-all"
+                  style={{ width: `${(taggedCount / products.length) * 100}%` }}
                 />
               </div>
             </div>
 
-            {/* Current product */}
             <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-              <p className="text-xs uppercase tracking-wide text-zinc-400 mb-0.5">Where is:</p>
-              <p className="text-xl font-bold">{currentProduct?.name}</p>
+              <p className="mb-0.5 text-xs uppercase tracking-wide text-zinc-400">Where is:</p>
+              <p className="text-xl font-bold">{current.name}</p>
             </div>
 
-            {/* Floor plan */}
-            <div className="relative select-none rounded-xl overflow-hidden border border-zinc-200">
+            <div className="relative select-none overflow-hidden rounded-xl border border-zinc-200">
               <img
                 ref={imgRef}
                 src={FLOOR_URL}
@@ -259,12 +341,23 @@ export default function DemoPage() {
                 onClick={handleFloorClick}
                 draggable={false}
               />
+              {/* Already-placed pins, dimmed */}
+              {products.filter(p => p.x_pct != null).map(p => (
+                <div
+                  key={p.id}
+                  className="pointer-events-none absolute"
+                  style={{ left: `${p.x_pct}%`, top: `${p.y_pct}%`, transform: 'translate(-50%,-100%)' }}
+                >
+                  <div className="h-2.5 w-2.5 rounded-full border border-white bg-zinc-400 shadow" />
+                </div>
+              ))}
+              {/* Pending pin */}
               {pendingPin && (
                 <div
-                  className="absolute pointer-events-none"
+                  className="pointer-events-none absolute"
                   style={{ left: `${pendingPin.x}%`, top: `${pendingPin.y}%`, transform: 'translate(-50%,-100%)' }}
                 >
-                  <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-lg" />
+                  <div className="h-4 w-4 rounded-full border-2 border-white bg-red-500 shadow-lg" />
                 </div>
               )}
             </div>
@@ -284,6 +377,13 @@ export default function DemoPage() {
                 Confirm pin
               </button>
             </div>
+
+            <button
+              onClick={autoPlaceRest}
+              className="w-full text-center text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
+            >
+              Demo shortcut: auto-place the remaining {untagged.length} →
+            </button>
           </div>
         )}
 
@@ -292,10 +392,10 @@ export default function DemoPage() {
           <div className="space-y-6 text-center">
             <div>
               <div className="mb-2 text-4xl">🎉</div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 5 of 5</p>
-              <h1 className="text-2xl font-bold">You're live!</h1>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 4 · That&apos;s the whole setup</p>
+              <h1 className="text-2xl font-bold">{storeName.trim() || 'Your store'} is live!</h1>
               <p className="mt-2 text-sm text-zinc-500">
-                Print this QR and post it in <strong>Sullivan's Grocery</strong>. Customers scan to ask where anything is.
+                {taggedCount} products pinned. Print this QR, post it by the entrance, and customers can find anything themselves.
               </p>
             </div>
 
@@ -310,13 +410,13 @@ export default function DemoPage() {
                 onClick={copyLink}
                 className="w-full rounded-xl border border-zinc-300 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
               >
-                Copy link
+                {copied ? '✓ Copied' : 'Copy link'}
               </button>
               <button
                 onClick={() => { setMessages([]); setActivePin(null); setStep(4) }}
                 className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800"
               >
-                See what customers see →
+                See what your customers see →
               </button>
             </div>
           </div>
@@ -326,38 +426,44 @@ export default function DemoPage() {
         {step === 4 && (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Customer view</p>
-              <h1 className="text-2xl font-bold">Sullivan's Grocery</h1>
-              <p className="text-sm text-zinc-500">This is what someone sees after scanning the QR code.</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Customer view · What a QR scan opens</p>
+              <h1 className="text-2xl font-bold">{storeName.trim() || 'Your store'}</h1>
+              <p className="text-sm text-zinc-500">Ask about the products you just tagged — the pin drops where you placed it.</p>
             </div>
 
-            {/* Floor plan with pin */}
-            <div className="relative rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50">
+            <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
               <img src={FLOOR_URL} alt="Store map" className="w-full" draggable={false} />
               {activePin && (
                 <div
-                  className="absolute pointer-events-none"
-                  style={{ left: `${activePin.x_pct}%`, top: `${activePin.y_pct}%`, transform: 'translate(-50%,-100%)' }}
+                  className="pointer-events-none absolute"
+                  style={{ left: `${activePin.x}%`, top: `${activePin.y}%`, transform: 'translate(-50%,-100%)' }}
                 >
                   <div className="flex flex-col items-center gap-1">
-                    {activePin.label && (
-                      <span className="rounded-full bg-black px-2 py-0.5 text-xs text-white shadow-md whitespace-nowrap">
-                        {activePin.label}
-                      </span>
-                    )}
-                    <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-white shadow-lg animate-bounce" />
+                    <span className="whitespace-nowrap rounded-full bg-black px-2 py-0.5 text-xs text-white shadow-md">
+                      {activePin.label}
+                    </span>
+                    <div className="h-5 w-5 animate-bounce rounded-full border-2 border-white bg-red-500 shadow-lg" />
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Chat history */}
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {messages.length === 0 && (
-                <div className="rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-500">
-                  Try asking: <em>"Where's the WD-40?"</em> or <em>"Where can I find milk?"</em>
-                </div>
-              )}
+            {/* Suggestion chips from the user's own products */}
+            {messages.length === 0 && suggestions.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => askDemo(`Where's the ${p.name.toLowerCase()}?`)}
+                    className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:border-black hover:text-black"
+                  >
+                    Where&apos;s the {p.name.toLowerCase()}?
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="max-h-44 space-y-2 overflow-y-auto">
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.role === 'user' ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-800'}`}>
@@ -367,8 +473,7 @@ export default function DemoPage() {
               ))}
             </div>
 
-            {/* Chat input */}
-            <form onSubmit={sendChat} className="flex gap-2">
+            <form onSubmit={e => { e.preventDefault(); askDemo(chatQ) }} className="flex gap-2">
               <input
                 value={chatQ}
                 onChange={e => setChatQ(e.target.value)}
@@ -384,9 +489,12 @@ export default function DemoPage() {
               </button>
             </form>
 
-            <div className="pt-2 text-center">
+            <div className="flex items-center justify-between pt-2">
+              <button onClick={restart} className="text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
+                ↺ Restart demo
+              </button>
               <Link href="/onboarding" className="text-sm font-medium underline underline-offset-2">
-                Set up your own store →
+                Set up your real store →
               </Link>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase-browser'
 
 export default function OnboardingPage() {
@@ -55,8 +56,10 @@ export default function OnboardingPage() {
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Pinned</h1>
-          <p className="mt-2 text-zinc-500">
+          <div className="mb-5 flex justify-center rounded-2xl bg-black px-6 py-8">
+            <Image src="/logo.png" alt="Pinned" width={200} height={63} priority />
+          </div>
+          <p className="text-zinc-500">
             Turn your store into a map customers can ask questions to. Set it up in minutes.
           </p>
           <p className="mt-3 text-xs text-zinc-400">

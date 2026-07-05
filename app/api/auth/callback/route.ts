@@ -4,10 +4,16 @@ import { NextResponse } from 'next/server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 
 // Canonical origin for redirects — avoids proxy/origin mismatches on Vercel.
+// Ignore a localhost NEXT_PUBLIC_SITE_URL (a common leftover) when the request
+// itself came from a real host, so production links never bounce to localhost.
 function siteOrigin(requestOrigin: string): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL
-  if (configured) return configured.replace(/\/$/, '')
-  return requestOrigin
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
+  const configuredIsLocal = !configured || /localhost|127\.0\.0\.1/.test(configured)
+  const requestIsLocal = /localhost|127\.0\.0\.1/.test(requestOrigin)
+
+  if (configured && !configuredIsLocal) return configured
+  if (!requestIsLocal) return requestOrigin
+  return configured ?? requestOrigin
 }
 
 export async function GET(request: Request) {

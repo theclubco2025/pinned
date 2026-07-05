@@ -22,6 +22,7 @@ export default function OnboardingPage() {
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [rawError, setRawError] = useState('')
 
   // Code-entry fallback (robust: no redirect / cross-device)
   const [code, setCode] = useState('')
@@ -30,22 +31,35 @@ export default function OnboardingPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
-    if (err) setError(friendlyError(err))
+    if (err) {
+      setError(friendlyError(err))
+      setRawError(err)
+    }
   }, [])
+
+  function showError(message: string) {
+    setError(friendlyError(message))
+    setRawError(message)
+    console.error('[Pinned auth]', message)
+  }
 
   async function sendLink(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setRawError('')
 
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
-    })
-
-    if (authError) setError(friendlyError(authError.message))
-    else setSent(true)
+    try {
+      const supabase = createClient()
+      const { error: authError } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/api/auth/callback` },
+      })
+      if (authError) showError(authError.message)
+      else setSent(true)
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Could not reach the server.')
+    }
     setLoading(false)
   }
 
@@ -55,18 +69,27 @@ export default function OnboardingPage() {
     if (token.length < 6) return
     setVerifying(true)
     setError('')
+    setRawError('')
 
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: 'email',
-    })
-
-    if (authError) setError(friendlyError(authError.message))
-    else router.push('/onboarding/step-2')
+    try {
+      const supabase = createClient()
+      const { error: authError } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
+      if (authError) showError(authError.message)
+      else router.push('/onboarding/step-2')
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Could not reach the server.')
+    }
     setVerifying(false)
   }
+
+  const errorBlock = error && (
+    <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2">
+      <p className="text-sm text-red-500">{error}</p>
+      {rawError && rawError !== error && (
+        <p className="mt-1 font-mono text-[11px] text-red-400/80">Details: {rawError}</p>
+      )}
+    </div>
+  )
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
@@ -100,7 +123,7 @@ export default function OnboardingPage() {
             >
               {loading ? 'Sending…' : 'Continue with email'}
             </button>
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {errorBlock}
           </form>
         ) : (
           <div className="flex flex-col gap-5">
@@ -129,11 +152,11 @@ export default function OnboardingPage() {
               >
                 {verifying ? 'Verifying…' : 'Verify & continue'}
               </button>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {errorBlock}
             </form>
 
             <button
-              onClick={() => { setSent(false); setCode(''); setError('') }}
+              onClick={() => { setSent(false); setCode(''); setError(''); setRawError('') }}
               className="text-xs text-faint underline underline-offset-2 hover:text-muted"
             >
               Use a different email

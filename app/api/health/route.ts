@@ -16,9 +16,10 @@ export async function GET() {
   }
 
   const anonLen = anon?.length ?? 0
+  const anthropicKeyPresent = !!(process.env.CLAUDE_PINNED || process.env.ANTHROPIC_API_KEY)
 
   return NextResponse.json({
-    ok: supabaseUrlValid && anonLen > 100 && !!process.env.ANTHROPIC_API_KEY,
+    ok: supabaseUrlValid && anonLen > 100 && anthropicKeyPresent,
     supabaseUrlPresent: !!url,
     supabaseUrlValid,
     // A real Supabase anon key is a JWT ~200+ chars. A short value here means
@@ -26,7 +27,7 @@ export async function GET() {
     supabaseAnonKeyPresent: !!anon,
     supabaseAnonKeyLength: anonLen,
     supabaseAnonKeyLooksValid: anonLen > 100,
-    anthropicKeyPresent: !!process.env.ANTHROPIC_API_KEY,
+    anthropicKeyPresent,
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? null,
     siteUrlIsLocalhost: /localhost|127\.0\.0\.1/.test(process.env.NEXT_PUBLIC_SITE_URL ?? ''),
   })

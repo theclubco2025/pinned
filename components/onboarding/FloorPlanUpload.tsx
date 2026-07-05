@@ -50,22 +50,22 @@ export default function FloorPlanUpload({ storeId, onUploaded }: Props) {
       <div
         {...getRootProps()}
         className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 cursor-pointer transition-colors ${
-          isDragActive ? 'border-black bg-zinc-50' : 'border-zinc-300 hover:border-zinc-400'
+          isDragActive ? 'border-foreground bg-elevated' : 'border-border hover:border-muted'
         }`}
       >
         <input {...getInputProps()} />
         {preview ? (
           <img src={preview} alt="Floor plan preview" className="max-h-48 rounded-lg object-contain" />
         ) : (
-          <div className="text-center text-zinc-500">
+          <div className="text-center text-muted">
             <p className="text-sm font-medium">{isDragActive ? 'Drop it here' : 'Drag & drop your floor plan'}</p>
             <p className="text-xs mt-1">or click to browse — PNG, JPG, PDF</p>
           </div>
         )}
       </div>
 
-      {uploading && <p className="text-sm text-zinc-500">Uploading…</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {uploading && <p className="text-sm text-muted">Uploading…</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   )
 }

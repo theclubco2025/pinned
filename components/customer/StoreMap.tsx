@@ -13,7 +13,7 @@ interface Props {
 
 export default function StoreMap({ floorPlanUrl, pin }: Props) {
   return (
-    <div className="relative w-full rounded-xl overflow-hidden border border-zinc-200 bg-zinc-50">
+    <div className="relative w-full rounded-xl overflow-hidden border border-border bg-white">
       <img
         src={floorPlanUrl}
         alt="Store map"

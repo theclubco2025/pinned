@@ -15,16 +15,16 @@ export default function DashboardQR({ store }: { store: Store }) {
   }, [storeUrl])
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5">
+    <div className="rounded-2xl border border-border bg-surface p-5">
       <p className="mb-3 text-sm font-medium">Customer QR code</p>
       <div className="flex items-center gap-5">
-        <div className="shrink-0">
-          <canvas ref={canvasRef} className={ready ? '' : 'opacity-0'} />
-          {!ready && <div className="h-[180px] w-[180px] rounded-lg bg-zinc-100 animate-pulse" />}
+        <div className="shrink-0 rounded-lg bg-white p-2">
+          <canvas ref={canvasRef} className={ready ? 'block' : 'hidden'} />
+          {!ready && <div className="h-[180px] w-[180px] animate-pulse rounded bg-zinc-100" />}
         </div>
         <div className="min-w-0 space-y-2">
-          <p className="break-all font-mono text-xs text-zinc-500">{storeUrl}</p>
-          <p className="text-xs text-zinc-400">Print and post near the entrance</p>
+          <p className="break-all font-mono text-xs text-muted">{storeUrl}</p>
+          <p className="text-xs text-faint">Print and post near the entrance</p>
         </div>
       </div>
     </div>

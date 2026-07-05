@@ -72,10 +72,10 @@ export default function CustomerView({ store }: { store: Store }) {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-white">
-      <header className="border-b border-zinc-100 px-4 py-3">
+    <main className="flex min-h-screen flex-col bg-background">
+      <header className="border-b border-border px-4 py-3">
         <h1 className="font-semibold">{store.name}</h1>
-        <p className="text-xs text-zinc-400">Ask me where anything is</p>
+        <p className="text-xs text-faint">Ask me where anything is</p>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -84,7 +84,7 @@ export default function CustomerView({ store }: { store: Store }) {
         )}
 
         {messages.length === 0 && (
-          <div className="rounded-xl bg-zinc-50 px-4 py-3 text-sm text-zinc-500">
+          <div className="rounded-xl bg-elevated px-4 py-3 text-sm text-muted">
             Ask me where to find anything — try &ldquo;where&rsquo;s the milk?&rdquo; or &ldquo;something to clean windows.&rdquo;
           </div>
         )}
@@ -97,10 +97,10 @@ export default function CustomerView({ store }: { store: Store }) {
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
-                  ? 'bg-black text-white'
+                  ? 'bg-foreground text-background'
                   : msg.pending
-                    ? 'bg-zinc-100 text-zinc-400 animate-pulse'
-                    : 'bg-zinc-100 text-zinc-800'
+                    ? 'bg-elevated text-faint animate-pulse'
+                    : 'bg-elevated text-foreground'
               }`}
             >
               {msg.text}
@@ -109,7 +109,7 @@ export default function CustomerView({ store }: { store: Store }) {
         ))}
       </div>
 
-      <div className="border-t border-zinc-100 px-4 py-4">
+      <div className="border-t border-border px-4 py-4">
         <ChatInput disabled={loading} onSubmit={handleAsk} />
       </div>
 

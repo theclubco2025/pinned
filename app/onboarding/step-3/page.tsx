@@ -49,7 +49,7 @@ export default function Step3Page() {
   if (!store) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-zinc-400">Loading…</p>
+        <p className="text-sm text-faint">Loading…</p>
       </main>
     )
   }
@@ -57,9 +57,9 @@ export default function Step3Page() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 3 of 5</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 3 of 5</p>
         <h1 className="mb-2 text-2xl font-bold">Add your products</h1>
-        <p className="mb-6 text-sm text-zinc-500">
+        <p className="mb-6 text-sm text-muted">
           One product per line. Copy-paste from a spreadsheet or just type them in.
         </p>
 
@@ -69,13 +69,13 @@ export default function Step3Page() {
             onChange={e => setText(e.target.value)}
             placeholder={"Whole milk\nOrganic eggs\nSourdough bread\nCheddar cheese"}
             rows={12}
-            className="w-full rounded-xl border border-zinc-300 px-4 py-3 font-mono text-sm outline-none focus:border-black resize-none"
+            className="w-full rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm text-foreground outline-none focus:border-foreground resize-none"
           />
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
           <button
             type="submit"
             disabled={saving || !text.trim()}
-            className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+            className="w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
           >
             {saving ? 'Saving…' : `Save products & start tagging →`}
           </button>

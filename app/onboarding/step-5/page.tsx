@@ -38,7 +38,7 @@ export default function Step5Page() {
   if (!store) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-zinc-400">Loading…</p>
+        <p className="text-sm text-faint">Loading…</p>
       </main>
     )
   }
@@ -49,15 +49,15 @@ export default function Step5Page() {
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm text-center">
         <div className="mb-4 text-4xl">🎉</div>
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 5 of 5</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 5 of 5</p>
         <h1 className="mb-2 text-2xl font-bold">You're live!</h1>
-        <p className="mb-8 text-sm text-zinc-500">
-          Print this QR code and post it around <span className="font-medium text-zinc-900">{store.name}</span>.
+        <p className="mb-8 text-sm text-muted">
+          Print this QR code and post it around <span className="font-medium text-foreground">{store.name}</span>.
           Customers scan to ask where anything is.
         </p>
 
         <div className="mb-6 flex justify-center">
-          <div className="rounded-2xl border border-zinc-200 p-4 shadow-sm">
+          <div className="rounded-2xl bg-white p-4 shadow-sm">
             <canvas ref={canvasRef} className={qrReady ? '' : 'opacity-0'} />
             {!qrReady && (
               <div className="flex h-60 w-60 items-center justify-center">
@@ -69,7 +69,7 @@ export default function Step5Page() {
 
         <button
           onClick={copyLink}
-          className="mb-6 w-full break-all rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-600 transition-colors hover:bg-zinc-100"
+          className="mb-6 w-full break-all rounded-lg border border-border bg-elevated px-3 py-2 font-mono text-xs text-muted transition-colors hover:text-foreground"
         >
           {copied ? '✓ Copied to clipboard' : storeUrl}
         </button>
@@ -77,13 +77,13 @@ export default function Step5Page() {
         <div className="flex flex-col gap-3">
           <Link
             href="/dashboard"
-            className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800"
+            className="w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90"
           >
             Go to dashboard →
           </Link>
           <Link
             href="/onboarding/step-4"
-            className="w-full text-sm text-zinc-400 underline underline-offset-2"
+            className="w-full text-sm text-faint underline underline-offset-2 hover:text-muted"
           >
             Keep tagging products
           </Link>

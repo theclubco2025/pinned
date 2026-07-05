@@ -31,7 +31,7 @@ export default function Step4Page() {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <p className="text-sm text-zinc-400">Loading your floor plan…</p>
+        <p className="text-sm text-faint">Loading your floor plan…</p>
       </main>
     )
   }
@@ -39,7 +39,7 @@ export default function Step4Page() {
   if (!store?.floor_plan_url) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4">
-        <p className="text-zinc-500">No floor plan uploaded yet.</p>
+        <p className="text-muted">No floor plan uploaded yet.</p>
         <button
           onClick={() => router.push('/onboarding/step-2')}
           className="mt-4 text-sm underline"
@@ -53,10 +53,10 @@ export default function Step4Page() {
   if (!products.length) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
-        <p className="text-zinc-500">All products are already tagged.</p>
+        <p className="text-muted">All products are already tagged.</p>
         <button
           onClick={() => router.push('/onboarding/step-5')}
-          className="mt-4 rounded-xl bg-black px-6 py-3 text-sm font-medium text-white"
+          className="mt-4 rounded-xl bg-foreground px-6 py-3 text-sm font-medium text-background"
         >
           Continue →
         </button>
@@ -67,9 +67,9 @@ export default function Step4Page() {
   return (
     <main className="min-h-screen px-4 py-8">
       <div className="mx-auto max-w-lg">
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 4 of 5</p>
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 4 of 5</p>
         <h1 className="mb-2 text-2xl font-bold">Tag each product</h1>
-        <p className="mb-6 text-sm text-zinc-500">
+        <p className="mb-6 text-sm text-muted">
           Tap where each item lives on your floor plan. Hit Skip if you're not sure.
         </p>
 

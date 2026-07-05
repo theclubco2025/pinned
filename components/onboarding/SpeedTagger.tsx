@@ -52,23 +52,23 @@ export default function SpeedTagger({ floorPlanUrl, products, onComplete }: Prop
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div className="text-sm text-zinc-500">
+        <div className="text-sm text-muted">
           {index + 1} of {products.length}
         </div>
-        <div className="h-1.5 flex-1 mx-4 rounded-full bg-zinc-100 overflow-hidden">
+        <div className="h-1.5 flex-1 mx-4 rounded-full bg-elevated overflow-hidden">
           <div
-            className="h-full bg-black rounded-full transition-all"
+            className="h-full bg-foreground rounded-full transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
-      <div className="rounded-xl bg-zinc-50 border border-zinc-200 p-4">
-        <p className="text-xs uppercase tracking-wide text-zinc-400 mb-1">Tap where you find:</p>
+      <div className="rounded-xl bg-elevated border border-border p-4">
+        <p className="text-xs uppercase tracking-wide text-faint mb-1">Tap where you find:</p>
         <p className="text-xl font-semibold">{current.name}</p>
       </div>
 
-      <div className="relative select-none rounded-xl overflow-hidden border border-zinc-200">
+      <div className="relative select-none rounded-xl overflow-hidden border border-border bg-white">
         <img
           ref={imgRef}
           src={floorPlanUrl}
@@ -95,14 +95,14 @@ export default function SpeedTagger({ floorPlanUrl, products, onComplete }: Prop
         <button
           onClick={() => saveTag(current.id, undefined, undefined, true)}
           disabled={saving}
-          className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-muted hover:bg-elevated disabled:opacity-50"
         >
           Skip
         </button>
         <button
           onClick={() => pin && saveTag(current.id, pin.x, pin.y)}
           disabled={!pin || saving}
-          className="flex-1 rounded-lg bg-black py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+          className="flex-1 rounded-lg bg-foreground py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
         >
           {saving ? 'Saving…' : 'Confirm pin'}
         </button>

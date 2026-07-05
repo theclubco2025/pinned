@@ -55,7 +55,6 @@ const DEFAULT_PRODUCTS = [
   'Cheddar Cheese',
 ].join('\n')
 
-// Sensible in-aisle spots for the auto-place shortcut (percent coords on the demo floor plan)
 const AUTO_SPOTS: [number, number][] = [
   [12, 30], [12, 55], [33, 22], [33, 52], [45, 40], [55, 30],
   [55, 55], [71, 35], [88, 25], [88, 58], [12, 68], [33, 65],
@@ -90,20 +89,16 @@ const STEP_LABELS = ['Store', 'Products', 'Tag', 'Go live', 'Customer']
 export default function DemoPage() {
   const [step, setStep] = useState(0)
 
-  // Owner inputs — fully editable
   const [storeName, setStoreName] = useState(DEFAULT_STORE)
   const [productText, setProductText] = useState(DEFAULT_PRODUCTS)
   const [products, setProducts] = useState<DemoProduct[]>([])
 
-  // Tagging
   const [pendingPin, setPendingPin] = useState<{ x: number; y: number } | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
 
-  // Done screen
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [copied, setCopied] = useState(false)
 
-  // Customer view
   const [chatQ, setChatQ] = useState('')
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; text: string }[]>([])
   const [activePin, setActivePin] = useState<{ x: number; y: number; label: string } | null>(null)
@@ -118,8 +113,6 @@ export default function DemoPage() {
       import('qrcode').then(QR => QR.toCanvas(canvasRef.current!, url, { width: 220, margin: 2 }))
     }
   }, [step])
-
-  // ── Handlers ──
 
   function startTagging() {
     const names = parseProducts(productText)
@@ -160,12 +153,7 @@ export default function DemoPage() {
         if (p.tagged) return p
         const [x, y] = AUTO_SPOTS[spot % AUTO_SPOTS.length]
         spot++
-        return {
-          ...p,
-          x_pct: x + (Math.random() * 6 - 3),
-          y_pct: y + (Math.random() * 6 - 3),
-          tagged: true,
-        }
+        return { ...p, x_pct: x + (Math.random() * 6 - 3), y_pct: y + (Math.random() * 6 - 3), tagged: true }
       })
     })
     setPendingPin(null)
@@ -208,12 +196,13 @@ export default function DemoPage() {
     setChatQ('')
   }
 
-  // Example questions pulled from what the user actually entered
   const suggestions = products.filter(p => p.x_pct != null).slice(0, 2)
 
+  const primaryBtn = 'w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40'
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* Banner with logo */}
+    <div className="min-h-screen bg-background">
+      {/* Banner (stays black — white logo) */}
       <div className="flex items-center justify-between bg-black px-4 py-3">
         <Image src="/logo.png" alt="Pinned" width={92} height={29} priority />
         <div className="text-xs text-zinc-400">
@@ -233,8 +222,8 @@ export default function DemoPage() {
               onClick={() => { if (i < step) setStep(i) }}
               className="flex flex-1 cursor-default flex-col items-center gap-1"
             >
-              <div className={`h-1.5 w-full rounded-full transition-colors ${i <= step ? 'bg-black' : 'bg-zinc-200'}`} />
-              <span className={`text-xs ${i === step ? 'font-semibold text-black' : 'text-zinc-400'}`}>{label}</span>
+              <div className={`h-1.5 w-full rounded-full transition-colors ${i <= step ? 'bg-foreground' : 'bg-border'}`} />
+              <span className={`text-xs ${i === step ? 'font-semibold text-foreground' : 'text-faint'}`}>{label}</span>
             </button>
           ))}
         </div>
@@ -243,38 +232,34 @@ export default function DemoPage() {
         {step === 0 && (
           <div className="space-y-5">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 1 · Try it with your own store</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 1 · Try it with your own store</p>
               <h1 className="text-2xl font-bold">Set up your store</h1>
-              <p className="mt-1 text-sm text-zinc-500">Type your real store name — the whole demo will use it.</p>
+              <p className="mt-1 text-sm text-muted">Type your real store name — the whole demo will use it.</p>
             </div>
-            <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-4">
+            <div className="space-y-4 rounded-xl border border-border bg-surface p-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-zinc-700">Store name</label>
+                <label className="mb-1 block text-sm font-medium text-foreground">Store name</label>
                 <input
                   value={storeName}
                   onChange={e => setStoreName(e.target.value)}
                   placeholder="e.g. Hank's Hardware"
-                  className="w-full rounded-xl border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                  className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none focus:border-foreground"
                 />
               </div>
               <div>
-                <label className="mb-2 block text-sm font-medium text-zinc-700">Floor plan</label>
-                <div className="relative overflow-hidden rounded-xl border border-zinc-200">
+                <label className="mb-2 block text-sm font-medium text-foreground">Floor plan</label>
+                <div className="relative overflow-hidden rounded-xl border border-border bg-white">
                   <img src={FLOOR_URL} alt="Demo floor plan" className="w-full" />
                   <div className="absolute right-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-xs text-white">
                     Sample floor plan
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-zinc-400">
+                <p className="mt-2 text-xs text-faint">
                   In the real app you upload a photo or sketch of your own layout.
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setStep(1)}
-              disabled={!storeName.trim()}
-              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
-            >
+            <button onClick={() => setStep(1)} disabled={!storeName.trim()} className={primaryBtn}>
               Next: Add products →
             </button>
           </div>
@@ -284,9 +269,9 @@ export default function DemoPage() {
         {step === 1 && (
           <div className="space-y-5">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 2 · One paste, one click</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 2 · One paste, one click</p>
               <h1 className="text-2xl font-bold">Add your products</h1>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-muted">
                 One per line (commas work too). Edit the list — put in what {storeName.trim() || 'your store'} actually sells.
               </p>
             </div>
@@ -295,14 +280,10 @@ export default function DemoPage() {
               onChange={e => setProductText(e.target.value)}
               placeholder={'Paste your products, one per line'}
               rows={10}
-              className="w-full resize-none rounded-xl border border-zinc-300 bg-white px-4 py-3 font-mono text-sm outline-none focus:border-black"
+              className="w-full resize-none rounded-xl border border-border bg-surface px-4 py-3 font-mono text-sm text-foreground outline-none focus:border-foreground"
             />
-            <p className="text-xs text-zinc-400">{parseProducts(productText).length} products detected</p>
-            <button
-              onClick={startTagging}
-              disabled={!parseProducts(productText).length}
-              className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
-            >
+            <p className="text-xs text-faint">{parseProducts(productText).length} products detected</p>
+            <button onClick={startTagging} disabled={!parseProducts(productText).length} className={primaryBtn}>
               Save & start tagging →
             </button>
           </div>
@@ -312,27 +293,24 @@ export default function DemoPage() {
         {step === 2 && current && (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 3 · The 5-minute setup</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 3 · The 5-minute setup</p>
               <h1 className="text-2xl font-bold">Tag each product</h1>
-              <p className="mt-1 text-sm text-zinc-500">Tap the floor plan where each item lives, then confirm.</p>
+              <p className="mt-1 text-sm text-muted">Tap the floor plan where each item lives, then confirm.</p>
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="whitespace-nowrap text-sm text-zinc-500">{taggedCount} of {products.length} tagged</span>
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                <div
-                  className="h-full rounded-full bg-black transition-all"
-                  style={{ width: `${(taggedCount / products.length) * 100}%` }}
-                />
+              <span className="whitespace-nowrap text-sm text-muted">{taggedCount} of {products.length} tagged</span>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-elevated">
+                <div className="h-full rounded-full bg-foreground transition-all" style={{ width: `${(taggedCount / products.length) * 100}%` }} />
               </div>
             </div>
 
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3">
-              <p className="mb-0.5 text-xs uppercase tracking-wide text-zinc-400">Where is:</p>
+            <div className="rounded-xl border border-border bg-elevated px-4 py-3">
+              <p className="mb-0.5 text-xs uppercase tracking-wide text-faint">Where is:</p>
               <p className="text-xl font-bold">{current.name}</p>
             </div>
 
-            <div className="relative select-none overflow-hidden rounded-xl border border-zinc-200">
+            <div className="relative select-none overflow-hidden rounded-xl border border-border bg-white">
               <img
                 ref={imgRef}
                 src={FLOOR_URL}
@@ -341,7 +319,6 @@ export default function DemoPage() {
                 onClick={handleFloorClick}
                 draggable={false}
               />
-              {/* Already-placed pins, dimmed */}
               {products.filter(p => p.x_pct != null).map(p => (
                 <div
                   key={p.id}
@@ -351,7 +328,6 @@ export default function DemoPage() {
                   <div className="h-2.5 w-2.5 rounded-full border border-white bg-zinc-400 shadow" />
                 </div>
               ))}
-              {/* Pending pin */}
               {pendingPin && (
                 <div
                   className="pointer-events-none absolute"
@@ -365,14 +341,14 @@ export default function DemoPage() {
             <div className="flex gap-3">
               <button
                 onClick={skipPin}
-                className="flex-1 rounded-lg border border-zinc-300 py-2.5 text-sm font-medium text-zinc-600 hover:bg-zinc-50"
+                className="flex-1 rounded-lg border border-border py-2.5 text-sm font-medium text-muted hover:bg-elevated"
               >
                 Skip
               </button>
               <button
                 onClick={confirmPin}
                 disabled={!pendingPin}
-                className="flex-1 rounded-lg bg-black py-2.5 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+                className="flex-1 rounded-lg bg-foreground py-2.5 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
               >
                 Confirm pin
               </button>
@@ -380,7 +356,7 @@ export default function DemoPage() {
 
             <button
               onClick={autoPlaceRest}
-              className="w-full text-center text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
+              className="w-full text-center text-xs text-faint underline underline-offset-2 hover:text-muted"
             >
               Demo shortcut: auto-place the remaining {untagged.length} →
             </button>
@@ -392,15 +368,15 @@ export default function DemoPage() {
           <div className="space-y-6 text-center">
             <div>
               <div className="mb-2 text-4xl">🎉</div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Step 4 · That&apos;s the whole setup</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 4 · That&apos;s the whole setup</p>
               <h1 className="text-2xl font-bold">{storeName.trim() || 'Your store'} is live!</h1>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-sm text-muted">
                 {taggedCount} products pinned. Print this QR, post it by the entrance, and customers can find anything themselves.
               </p>
             </div>
 
             <div className="flex justify-center">
-              <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="rounded-2xl bg-white p-4 shadow-sm">
                 <canvas ref={canvasRef} />
               </div>
             </div>
@@ -408,14 +384,11 @@ export default function DemoPage() {
             <div className="flex flex-col gap-3">
               <button
                 onClick={copyLink}
-                className="w-full rounded-xl border border-zinc-300 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                className="w-full rounded-xl border border-border py-3 text-sm font-medium text-foreground hover:bg-elevated"
               >
                 {copied ? '✓ Copied' : 'Copy link'}
               </button>
-              <button
-                onClick={() => { setMessages([]); setActivePin(null); setStep(4) }}
-                className="w-full rounded-xl bg-black py-3 text-sm font-medium text-white hover:bg-zinc-800"
-              >
+              <button onClick={() => { setMessages([]); setActivePin(null); setStep(4) }} className={primaryBtn}>
                 See what your customers see →
               </button>
             </div>
@@ -426,12 +399,12 @@ export default function DemoPage() {
         {step === 4 && (
           <div className="space-y-4">
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-zinc-400">Customer view · What a QR scan opens</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Customer view · What a QR scan opens</p>
               <h1 className="text-2xl font-bold">{storeName.trim() || 'Your store'}</h1>
-              <p className="text-sm text-zinc-500">Ask about the products you just tagged — the pin drops where you placed it.</p>
+              <p className="text-sm text-muted">Ask about the products you just tagged — the pin drops where you placed it.</p>
             </div>
 
-            <div className="relative overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+            <div className="relative overflow-hidden rounded-xl border border-border bg-white">
               <img src={FLOOR_URL} alt="Store map" className="w-full" draggable={false} />
               {activePin && (
                 <div
@@ -448,14 +421,13 @@ export default function DemoPage() {
               )}
             </div>
 
-            {/* Suggestion chips from the user's own products */}
             {messages.length === 0 && suggestions.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {suggestions.map(p => (
                   <button
                     key={p.id}
                     onClick={() => askDemo(`Where's the ${p.name.toLowerCase()}?`)}
-                    className="rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs text-zinc-600 hover:border-black hover:text-black"
+                    className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-foreground hover:text-foreground"
                   >
                     Where&apos;s the {p.name.toLowerCase()}?
                   </button>
@@ -466,7 +438,7 @@ export default function DemoPage() {
             <div className="max-h-44 space-y-2 overflow-y-auto">
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.role === 'user' ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-800'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${m.role === 'user' ? 'bg-foreground text-background' : 'bg-elevated text-foreground'}`}>
                     {m.text}
                   </div>
                 </div>
@@ -478,19 +450,19 @@ export default function DemoPage() {
                 value={chatQ}
                 onChange={e => setChatQ(e.target.value)}
                 placeholder="Where can I find…"
-                className="flex-1 rounded-full border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+                className="flex-1 rounded-full border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none focus:border-foreground"
               />
               <button
                 type="submit"
                 disabled={!chatQ.trim()}
-                className="rounded-full bg-black px-5 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+                className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
               >
                 Ask
               </button>
             </form>
 
             <div className="flex items-center justify-between pt-2">
-              <button onClick={restart} className="text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600">
+              <button onClick={restart} className="text-xs text-faint underline underline-offset-2 hover:text-muted">
                 ↺ Restart demo
               </button>
               <Link href="/onboarding" className="text-sm font-medium underline underline-offset-2">

@@ -25,12 +25,12 @@ export default function ChatInput({ disabled, onSubmit }: Props) {
         value={question}
         onChange={e => setQuestion(e.target.value)}
         placeholder="Where can I find…"
-        className="flex-1 rounded-full border border-zinc-300 px-4 py-3 text-sm outline-none focus:border-black"
+        className="flex-1 rounded-full border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none focus:border-foreground"
       />
       <button
         type="submit"
         disabled={!question.trim() || disabled}
-        className="rounded-full bg-black px-5 py-3 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-40"
+        className="rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40"
       >
         {disabled ? '…' : 'Ask'}
       </button>

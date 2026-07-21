@@ -29,6 +29,7 @@ export default async function StorePage({
     <CustomerView
       store={store as Store}
       products={(products ?? []) as Product[]}
+      templateId={store.store_type}
     />
   )
 }

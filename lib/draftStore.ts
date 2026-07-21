@@ -1,3 +1,5 @@
+import type { StarterPackId } from '@/lib/starterPacks'
+
 export interface DraftProduct {
   id: string
   name: string
@@ -9,6 +11,7 @@ export interface DraftProduct {
 
 export interface DraftStore {
   storeName: string
+  storeType: StarterPackId | null
   floorPlanUrl: string | null
   templateId: string | null
   products: DraftProduct[]
@@ -21,7 +24,7 @@ function newId(): string {
 }
 
 export function emptyDraft(): DraftStore {
-  return { storeName: '', floorPlanUrl: null, templateId: null, products: [] }
+  return { storeName: '', storeType: null, floorPlanUrl: null, templateId: null, products: [] }
 }
 
 export function loadDraft(): DraftStore {

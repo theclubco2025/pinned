@@ -27,6 +27,31 @@ export function localMatch<T extends MatchableProduct>(
   return best?.product ?? null
 }
 
+export function localMatchAll<T extends MatchableProduct>(
+  question: string,
+  products: T[],
+  limit = 5
+): T[] {
+  const q = question.toLowerCase()
+  const scored: { product: T; score: number }[] = []
+  for (const p of products) {
+    const name = p.name.toLowerCase()
+    let score = 0
+    if (q.includes(name)) score = name.length * 2
+    else {
+      for (const word of name.split(/\s+/)) {
+        if (word.length > 2 && q.includes(word)) score += word.length
+      }
+    }
+    if (score > 0) scored.push({ product: p, score })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  const top = scored.slice(0, limit)
+  if (top.length <= 1) return top.map(s => s.product)
+  const threshold = top[0].score * 0.6
+  return top.filter(s => s.score >= threshold).map(s => s.product)
+}
+
 export function buildLocalReply(
   product: MatchableProduct | null,
   storeName?: string

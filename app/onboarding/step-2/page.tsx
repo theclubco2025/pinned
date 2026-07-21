@@ -5,15 +5,19 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import FloorPlanUpload from '@/components/onboarding/FloorPlanUpload'
 import FloorPlanTemplates from '@/components/onboarding/FloorPlanTemplates'
+import StoreTypePicker from '@/components/onboarding/StoreTypePicker'
 import {
   loadDraft,
   saveDraft,
   emptyDraft,
   type DraftStore,
 } from '@/lib/draftStore'
+import { getTemplate } from '@/lib/floorTemplates'
+import type { StarterPackId } from '@/lib/starterPacks'
 import { createClient } from '@/lib/supabase-browser'
 
 type FloorMode = 'template' | 'upload'
+type Step = 'type' | 'floor'
 
 export default function Step2Page() {
   const router = useRouter()
@@ -22,6 +26,9 @@ export default function Step2Page() {
   )
   const [authenticated, setAuthenticated] = useState(false)
   const [storeId, setStoreId] = useState<string | null>(null)
+  const [step, setStep] = useState<Step>(() =>
+    typeof window !== 'undefined' && loadDraft().storeType ? 'floor' : 'type'
+  )
   const [floorMode, setFloorMode] = useState<FloorMode>('template')
   const [creatingStore, setCreatingStore] = useState(false)
   const [error, setError] = useState('')
@@ -40,7 +47,9 @@ export default function Step2Page() {
                 setDraft(prev => ({
                   ...(prev ?? loadDraft()),
                   storeName: d.store.name,
+                  storeType: (d.store.store_type as StarterPackId) ?? prev?.storeType ?? null,
                   floorPlanUrl: d.store.floor_plan_url ?? prev?.floorPlanUrl ?? null,
+                  templateId: (d.store.store_type as string) ?? prev?.templateId ?? null,
                 }))
               }
             })
@@ -56,6 +65,16 @@ export default function Step2Page() {
     })
   }
 
+  function handleStoreTypeSelect(id: StarterPackId) {
+    const template = getTemplate(id)
+    updateDraft({
+      storeType: id,
+      templateId: id,
+      floorPlanUrl: template?.url ?? null,
+    })
+    setStep('floor')
+  }
+
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault()
     if (!draft?.storeName.trim()) return
@@ -66,7 +85,10 @@ export default function Step2Page() {
       const res = await fetch('/api/stores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: draft.storeName.trim() }),
+        body: JSON.stringify({
+          name: draft.storeName.trim(),
+          storeType: draft.storeType,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -82,18 +104,43 @@ export default function Step2Page() {
     router.push('/onboarding/step-3')
   }
 
-  if (!draft.storeName && !draft.floorPlanUrl && draft.products.length === 0) {
-    // first visit — empty draft is fine
-  }
+  const hasFloor = !!draft.floorPlanUrl || !!draft.templateId
 
-  const hasFloor = !!draft.floorPlanUrl
+  if (step === 'type') {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 1 of 5 · No account needed</p>
+          <h1 className="mb-2 text-2xl font-bold">What kind of store?</h1>
+          <p className="mb-6 text-sm text-muted">
+            We&apos;ll tailor your floor plan and starter products to your store type.
+          </p>
+
+          <StoreTypePicker selected={draft.storeType} onSelect={handleStoreTypeSelect} />
+
+          <p className="mt-4 text-center text-sm text-faint">
+            Already have an account?{' '}
+            <Link href="/onboarding" className="underline hover:text-muted">Log in</Link>
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 1 of 5 · No account needed</p>
         <h1 className="mb-2 text-2xl font-bold">Set up your store</h1>
-        <p className="mb-6 text-sm text-muted">Type your store name and pick a floor plan — try the whole thing before signing up.</p>
+        <p className="mb-6 text-sm text-muted">Name your store and confirm your floor plan.</p>
+
+        <button
+          type="button"
+          onClick={() => setStep('type')}
+          className="mb-4 text-sm text-faint underline underline-offset-2 hover:text-muted"
+        >
+          ← Change store type
+        </button>
 
         <form onSubmit={handleContinue} className="flex flex-col gap-4">
           <div>
@@ -129,7 +176,7 @@ export default function Step2Page() {
             {floorMode === 'template' ? (
               <FloorPlanTemplates
                 selectedId={draft.templateId}
-                onSelect={(id, url) => updateDraft({ templateId: id, floorPlanUrl: url })}
+                onSelect={(id, url) => updateDraft({ templateId: id, storeType: id as StarterPackId, floorPlanUrl: url })}
               />
             ) : authenticated && storeId ? (
               <FloorPlanUpload

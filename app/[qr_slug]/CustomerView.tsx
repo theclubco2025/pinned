@@ -1,10 +1,12 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useState, useEffect, type CSSProperties } from 'react'
 import Image from 'next/image'
 import StoreMap from '@/components/customer/StoreMap'
 import ChatInput from '@/components/customer/ChatInput'
-import { localMatch, buildLocalReply } from '@/lib/productMatch'
+import { localMatch, localMatchAll, buildLocalReply } from '@/lib/productMatch'
+import { getFloorPlan } from '@/lib/floorPlans/templates'
+import { routeHint } from '@/lib/floorPlans/route'
 import type { Store, Product } from '@/types'
 import type { DraftProduct } from '@/lib/draftStore'
 
@@ -30,39 +32,93 @@ interface Props {
   products?: Matchable[]
   draftMode?: boolean
   compact?: boolean
+  templateId?: string | null
 }
 
-export default function CustomerView({ store, products = [], draftMode = false, compact = false }: Props) {
+export default function CustomerView({
+  store,
+  products = [],
+  draftMode = false,
+  compact = false,
+  templateId,
+}: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [activePin, setActivePin] = useState<{ x_pct: number; y_pct: number; label: string } | null>(null)
+  const [routeHintText, setRouteHintText] = useState<string | null>(null)
+  const [disambiguation, setDisambiguation] = useState<Matchable[]>([])
+  const [analyticsSuggestions, setAnalyticsSuggestions] = useState<string[]>([])
+
+  const resolvedTemplateId = templateId ?? store.store_type ?? null
+  const plan = getFloorPlan(resolvedTemplateId)
 
   const taggedWithPins = products.filter(
     p => p.tagged && p.x_pct != null && p.y_pct != null
   )
-  const suggestions = taggedWithPins.slice(0, 3)
+  const defaultSuggestions = taggedWithPins.slice(0, 3).map(
+    p => `Where's the ${p.name.toLowerCase()}?`
+  )
+
+  useEffect(() => {
+    if (draftMode) return
+    fetch('/api/analytics')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (data?.topQuestions?.length) {
+          setAnalyticsSuggestions(data.topQuestions.slice(0, 3).map((q: { question: string }) => q.question))
+        }
+      })
+      .catch(() => {})
+  }, [draftMode])
+
+  const suggestions = analyticsSuggestions.length ? analyticsSuggestions : defaultSuggestions
 
   const accentStyle = store.primary_color
     ? ({ '--color-accent': store.primary_color } as CSSProperties)
     : undefined
 
-  async function handleAsk(question: string) {
+  function applyPin(product: Matchable) {
+    if (product.x_pct != null && product.y_pct != null) {
+      setActivePin({
+        x_pct: product.x_pct,
+        y_pct: product.y_pct,
+        label: product.aisle_label || product.name,
+      })
+      if (plan) {
+        setRouteHintText(routeHint(plan, product.x_pct, product.y_pct))
+      }
+    } else {
+      setActivePin(null)
+      setRouteHintText(null)
+    }
+  }
+
+  async function resolveAsk(question: string, forcedProduct?: Matchable) {
     setLoading(true)
+    setDisambiguation([])
     setMessages(prev => [
       ...prev,
       { role: 'user', text: question },
       { role: 'assistant', text: 'Looking…', pending: true },
     ])
 
-    const matchList = products.length
-      ? products
-      : []
-
-    const optimistic = localMatch(question, matchList)
-    if (optimistic) {
-      const { pin } = buildLocalReply(optimistic, store.name)
-      if (pin) setActivePin(pin)
+    const matches = localMatchAll(question, products)
+    if (!forcedProduct && matches.length > 1) {
+      setDisambiguation(matches)
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = {
+          role: 'assistant',
+          text: `I found a few matches — which one did you mean?`,
+        }
+        return next
+      })
+      setLoading(false)
+      return
     }
+
+    const optimistic = forcedProduct ?? matches[0] ?? localMatch(question, products)
+    if (optimistic) applyPin(optimistic)
 
     if (draftMode) {
       const { message, pin } = buildLocalReply(optimistic, store.name)
@@ -86,7 +142,11 @@ export default function CustomerView({ store, products = [], draftMode = false, 
 
       setMessages(prev => {
         const next = [...prev]
-        next[next.length - 1] = { role: 'assistant', text: result.message }
+        let text = result.message
+        if (plan && result.x_pct != null && result.y_pct != null) {
+          text += ` ${routeHint(plan, result.x_pct, result.y_pct)}`
+        }
+        next[next.length - 1] = { role: 'assistant', text }
         return next
       })
 
@@ -96,8 +156,10 @@ export default function CustomerView({ store, products = [], draftMode = false, 
           y_pct: result.y_pct,
           label: result.aisle_label || result.name || '',
         })
+        if (plan) setRouteHintText(routeHint(plan, result.x_pct, result.y_pct))
       } else if (!optimistic || !buildLocalReply(optimistic).pin) {
         setActivePin(null)
+        setRouteHintText(null)
       }
     } catch {
       const { message, pin } = buildLocalReply(optimistic, store.name)
@@ -112,9 +174,15 @@ export default function CustomerView({ store, products = [], draftMode = false, 
     }
   }
 
+  function handleDisambiguationPick(product: Matchable) {
+    setDisambiguation([])
+    const lastUser = [...messages].reverse().find(m => m.role === 'user')
+    if (lastUser) resolveAsk(lastUser.text, product)
+  }
+
   return (
     <main
-      className={`flex flex-col bg-background ${compact ? 'min-h-[480px] rounded-xl border border-border overflow-hidden' : 'min-h-screen'}`}
+      className={`flex flex-col bg-background transition-colors duration-300 ${compact ? 'min-h-[480px] rounded-xl border border-border overflow-hidden' : 'min-h-screen'}`}
       style={accentStyle}
     >
       <header className="border-b border-border px-4 py-3">
@@ -130,21 +198,45 @@ export default function CustomerView({ store, products = [], draftMode = false, 
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {store.floor_plan_url && (
-          <StoreMap floorPlanUrl={store.floor_plan_url} pin={activePin} />
+        {(store.floor_plan_url || plan) && (
+          <div className="transition-opacity duration-500">
+            <StoreMap
+              floorPlanUrl={store.floor_plan_url ?? ''}
+              templateId={resolvedTemplateId}
+              pin={activePin}
+            />
+            {routeHintText && activePin && (
+              <p className="mt-2 text-sm text-accent">{routeHintText}</p>
+            )}
+          </div>
         )}
 
         {messages.length === 0 && suggestions.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {suggestions.map(p => (
+            {suggestions.map(q => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => resolveAsk(q.endsWith('?') ? q : `Where's the ${q}?`)}
+                disabled={loading}
+                className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-foreground transition-colors"
+              >
+                {q.endsWith('?') ? q : `Where's the ${q}?`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {disambiguation.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {disambiguation.map(p => (
               <button
                 key={p.id}
                 type="button"
-                onClick={() => handleAsk(`Where's the ${p.name.toLowerCase()}?`)}
-                disabled={loading}
-                className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-foreground"
+                onClick={() => handleDisambiguationPick(p)}
+                className="rounded-full border border-accent bg-accent/10 px-3 py-1.5 text-xs font-medium text-foreground"
               >
-                Where&apos;s the {p.name.toLowerCase()}?
+                {p.name}
               </button>
             ))}
           </div>
@@ -157,7 +249,7 @@ export default function CustomerView({ store, products = [], draftMode = false, 
         )}
 
         {messages.map((msg, i) => (
-          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} transition-all`}>
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
@@ -174,7 +266,7 @@ export default function CustomerView({ store, products = [], draftMode = false, 
       </div>
 
       <div className="border-t border-border px-4 py-4">
-        <ChatInput disabled={loading} onSubmit={handleAsk} />
+        <ChatInput disabled={loading} onSubmit={resolveAsk} />
       </div>
 
       {!compact && (

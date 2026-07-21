@@ -26,9 +26,11 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { storeName, floorPlanUrl, products } = body as {
+  const { storeName, floorPlanUrl, storeType, templateId, products } = body as {
     storeName: string
     floorPlanUrl: string | null
+    storeType?: string | null
+    templateId?: string | null
     products: DraftProductPayload[]
   }
 
@@ -49,6 +51,12 @@ export async function POST(request: Request) {
     storeId = existing.id
     qrSlug = existing.qr_slug
     await supabase.from('stores').update({ name: storeName.trim() }).eq('id', storeId)
+    if (storeType ?? templateId) {
+      await supabase
+        .from('stores')
+        .update({ store_type: storeType ?? templateId ?? null })
+        .eq('id', storeId)
+    }
   } else {
     qrSlug = slugify(storeName.trim())
     const { data: newStore, error: storeError } = await supabase
@@ -57,6 +65,7 @@ export async function POST(request: Request) {
         name: storeName.trim(),
         owner_email: user.email!,
         qr_slug: qrSlug,
+        store_type: storeType ?? templateId ?? null,
       })
       .select()
       .single()

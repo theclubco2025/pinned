@@ -17,11 +17,19 @@ export default function Step4Page() {
   const router = useRouter()
   const [store, setStore] = useState<Store | null>(null)
   const [draft, setDraft] = useState<DraftStore | null>(null)
-  const [products, setProducts] = useState<(Product | DraftProduct)[]>([])
+  /** Stable tagging queue — seeded once; SpeedTagger advances by index only */
+  const [sessionProducts, setSessionProducts] = useState<(Product | DraftProduct)[]>([])
   const [loading, setLoading] = useState(true)
   const [draftMode, setDraftMode] = useState(true)
   const [taggedTotal, setTaggedTotal] = useState(0)
   const [showZone, setShowZone] = useState(false)
+
+  function refreshSessionFromDraft() {
+    const d = loadDraft()
+    setDraft(d)
+    setTaggedTotal(countTagged(d))
+    setSessionProducts(d.products.filter(p => !p.tagged))
+  }
 
   useEffect(() => {
     async function load() {
@@ -40,7 +48,7 @@ export default function Step4Page() {
           const all = prodData.products as Product[]
           const untagged = all.filter(p => !p.tagged)
           setTaggedTotal(all.filter(p => p.tagged && p.x_pct != null).length)
-          setProducts(untagged)
+          setSessionProducts(untagged)
           setLoading(false)
           return
         }
@@ -48,7 +56,7 @@ export default function Step4Page() {
 
       setDraftMode(true)
       setTaggedTotal(countTagged(d))
-      setProducts(d.products.filter(p => !p.tagged))
+      setSessionProducts(d.products.filter(p => !p.tagged))
       setLoading(false)
     }
     load()
@@ -67,7 +75,7 @@ export default function Step4Page() {
     saveDraft(next)
     setDraft(next)
     setTaggedTotal(countTagged(next))
-    setProducts(next.products.filter(p => !p.tagged))
+    // Do NOT shrink sessionProducts — SpeedTagger advances by index
   }
 
   function handleDraftSkip(productId: string) {
@@ -79,7 +87,6 @@ export default function Step4Page() {
     saveDraft(next)
     setDraft(next)
     setTaggedTotal(countTagged(next))
-    setProducts(next.products.filter(p => !p.tagged))
   }
 
   function handleDraftBulkTag(productIds: string[], x_pct: number, y_pct: number, aisleLabel: string) {
@@ -96,11 +103,13 @@ export default function Step4Page() {
     saveDraft(next)
     setDraft(next)
     setTaggedTotal(countTagged(next))
-    setProducts(next.products.filter(p => !p.tagged))
     setShowZone(false)
+    refreshSessionFromDraft()
   }
 
   const floorPlanUrl = draftMode ? draft?.floorPlanUrl : store?.floor_plan_url
+  const templateId = draftMode ? draft?.templateId : store?.store_type ?? null
+  const storeType = draftMode ? draft?.storeType : store?.store_type ?? null
 
   if (loading) {
     return (
@@ -110,7 +119,7 @@ export default function Step4Page() {
     )
   }
 
-  if (!floorPlanUrl) {
+  if (!floorPlanUrl && !templateId) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4">
         <p className="text-muted">No floor plan yet.</p>
@@ -121,7 +130,7 @@ export default function Step4Page() {
     )
   }
 
-  if (!products.length) {
+  if (!sessionProducts.length && taggedTotal > 0) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
         <p className="text-muted">All products are tagged.</p>
@@ -130,6 +139,17 @@ export default function Step4Page() {
           className="mt-4 rounded-xl bg-foreground px-6 py-3 text-sm font-medium text-background"
         >
           Continue →
+        </button>
+      </main>
+    )
+  }
+
+  if (!sessionProducts.length) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center">
+        <p className="text-muted">No products to tag.</p>
+        <button onClick={() => router.push('/onboarding/step-3')} className="mt-4 text-sm underline">
+          Add products first
         </button>
       </main>
     )
@@ -152,15 +172,16 @@ export default function Step4Page() {
           {showZone ? 'Hide bulk zone tagger' : 'Bulk tag by aisle/zone →'}
         </button>
 
-        {showZone && (
+        {showZone && (floorPlanUrl || templateId) && (
           <div className="mb-6">
             <ZoneTagger
-              floorPlanUrl={floorPlanUrl}
-              products={products}
+              floorPlanUrl={floorPlanUrl ?? ''}
+              templateId={templateId}
+              products={sessionProducts.filter(p => !p.tagged)}
               draftMode={draftMode}
               onBulkTag={handleDraftBulkTag}
               onComplete={() => {
-                if (draftMode) setProducts(loadDraft().products.filter(p => !p.tagged))
+                if (draftMode) refreshSessionFromDraft()
                 else router.refresh()
               }}
             />
@@ -168,9 +189,12 @@ export default function Step4Page() {
         )}
 
         <SpeedTagger
+          key={sessionProducts.map(p => p.id).join(',')}
           storeId={store?.id}
-          floorPlanUrl={floorPlanUrl}
-          products={products}
+          floorPlanUrl={floorPlanUrl ?? ''}
+          templateId={templateId}
+          storeType={storeType}
+          products={sessionProducts}
           draftMode={draftMode}
           onTag={handleDraftTag}
           onSkip={handleDraftSkip}

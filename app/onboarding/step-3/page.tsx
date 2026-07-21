@@ -10,7 +10,7 @@ import {
   type DraftStore,
 } from '@/lib/draftStore'
 import { parseProducts, parseCsvProducts } from '@/lib/parseProducts'
-import { STARTER_PACKS } from '@/lib/starterPacks'
+import { getStarterPack, STARTER_PACKS } from '@/lib/starterPacks'
 import type { Store } from '@/types'
 
 export default function Step3Page() {
@@ -22,7 +22,12 @@ export default function Step3Page() {
   const [text, setText] = useState(() => {
     if (typeof window === 'undefined') return ''
     const d = loadDraft()
-    return d.products.length ? d.products.map(p => p.name).join('\n') : ''
+    if (d.products.length) return d.products.map(p => p.name).join('\n')
+    if (d.storeType) {
+      const pack = getStarterPack(d.storeType)
+      if (pack) return pack.products.join('\n')
+    }
+    return ''
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -90,16 +95,20 @@ export default function Step3Page() {
     reader.readAsText(file)
   }
 
-  if (!draft.storeName.trim() && !text.trim()) {
-    // first visit ok
-  }
+  const storeTypeLabel = draft.storeType
+    ? getStarterPack(draft.storeType)?.label ?? draft.storeType
+    : null
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 2 of 5</p>
         <h1 className="mb-2 text-2xl font-bold">Add your products</h1>
-        <p className="mb-4 text-sm text-muted">One per line, import CSV, or start from a category pack.</p>
+        <p className="mb-4 text-sm text-muted">
+          {storeTypeLabel
+            ? `Here are common ${storeTypeLabel} items — edit freely, import CSV, or pick another pack.`
+            : 'One per line, import CSV, or start from a category pack.'}
+        </p>
 
         <div className="mb-4 flex flex-wrap gap-2">
           {STARTER_PACKS.map(pack => (
@@ -107,7 +116,9 @@ export default function Step3Page() {
               key={pack.id}
               type="button"
               onClick={() => applyStarterPack(pack.id)}
-              className="rounded-full border border-border px-3 py-1 text-xs text-muted hover:border-foreground hover:text-foreground"
+              className={`rounded-full border px-3 py-1 text-xs hover:border-foreground hover:text-foreground ${
+                draft.storeType === pack.id ? 'border-accent text-foreground' : 'border-border text-muted'
+              }`}
             >
               {pack.label}
             </button>

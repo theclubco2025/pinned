@@ -7,6 +7,10 @@ Grocery, hardware, pharmacy, garden center, liquor, bookstore — any store with
 ## Features
 
 - Try-before-signup onboarding with local draft mode
+- Store-type-first setup (grocery, hardware, pharmacy, etc.)
+- Structured floor plan templates with labeled aisles/zones
+- Customer wayfinding — animated route from entrance to product pin
+- AI auto-placement of products onto floor plan zones
 - Floor plan templates or photo upload (camera supported on mobile)
 - Product paste, CSV import, and category starter packs
 - Speed tagger and bulk aisle/zone tagging
@@ -47,6 +51,7 @@ Run SQL migrations in order against your Supabase project:
 1. `supabase/migrations/001_init.sql`
 2. `supabase/migrations/002_analytics_and_staff.sql`
 3. `supabase/migrations/003_branding_and_push.sql`
+4. `supabase/migrations/004_store_type.sql` — adds `store_type` on stores and optional `category` on products
 
 In Supabase Dashboard: SQL Editor → paste each file → Run.
 

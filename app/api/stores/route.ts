@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { name } = body
+  const { name, storeType } = body
 
   if (!name?.trim()) {
     return NextResponse.json({ error: 'Name required' }, { status: 400 })
@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       name: name.trim(),
       owner_email: user.email!,
       qr_slug: slugify(name.trim()),
+      store_type: storeType ?? null,
     })
     .select()
     .single()

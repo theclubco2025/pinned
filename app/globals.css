@@ -59,6 +59,16 @@ body {
   animation: pinGlowPulse 3.5s ease-in-out infinite;
 }
 
+@keyframes routeDash {
+  to {
+    stroke-dashoffset: -28;
+  }
+}
+
+.route-animate {
+  animation: routeDash 1.2s linear infinite;
+}
+
 @media print {
   body * {
     visibility: hidden;

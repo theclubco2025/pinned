@@ -50,6 +50,8 @@ export default function Step5Page() {
         body: JSON.stringify({
           storeName: d.storeName,
           floorPlanUrl: d.floorPlanUrl,
+          storeType: d.storeType,
+          templateId: d.templateId,
           products: d.products,
         }),
       })
@@ -108,6 +110,7 @@ export default function Step5Page() {
           store={previewStore}
           products={draft.products}
           draftMode={draftMode}
+          templateId={draft.templateId ?? draft.storeType}
           compact
         />
 

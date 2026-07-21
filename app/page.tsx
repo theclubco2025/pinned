@@ -13,6 +13,6 @@ export default async function Home() {
   if (user) {
     redirect('/dashboard')
   } else {
-    redirect('/onboarding/step-2')
+    redirect('/onboarding')
   }
 }

@@ -53,19 +53,20 @@ export async function proxy(request: NextRequest) {
     ]
     const isDraftStep = draftSteps.some(s => pathname === s || pathname.startsWith(s + '/'))
 
+    // Dashboard requires auth. Onboarding landing + draft steps are public
+    // so new store owners can try before signup.
     if (!user && pathname.startsWith('/dashboard')) {
       const url = request.nextUrl.clone()
-      url.pathname = '/onboarding/step-2'
+      url.pathname = '/onboarding'
       return NextResponse.redirect(url)
     }
 
-    if (!user && pathname === '/onboarding') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/onboarding/step-2'
-      return NextResponse.redirect(url)
-    }
-
-    if (!user && pathname.startsWith('/onboarding') && !isDraftStep && pathname !== '/onboarding') {
+    if (
+      !user &&
+      pathname.startsWith('/onboarding') &&
+      pathname !== '/onboarding' &&
+      !isDraftStep
+    ) {
       const url = request.nextUrl.clone()
       url.pathname = '/onboarding/step-2'
       return NextResponse.redirect(url)

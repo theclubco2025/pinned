@@ -32,22 +32,20 @@ function friendlyError(message: string): string {
 }
 
 type Method = 'password' | 'link'
-type PwMode = 'signup' | 'login'
+type Mode = 'landing' | 'login'
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const [mode, setMode] = useState<Mode>('landing')
   const [method, setMethod] = useState<Method>('password')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [pwMode, setPwMode] = useState<PwMode>('signup')
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [rawError, setRawError] = useState('')
-  const [notice, setNotice] = useState('')
 
-  // Magic-link path
   const [sent, setSent] = useState(false)
   const [code, setCode] = useState('')
   const [verifying, setVerifying] = useState(false)
@@ -57,6 +55,7 @@ export default function OnboardingPage() {
     const err = params.get('error')
     if (!err) return
     queueMicrotask(() => {
+      setMode('login')
       setError(friendlyError(err))
       setRawError(err)
     })
@@ -65,7 +64,6 @@ export default function OnboardingPage() {
   function reset() {
     setError('')
     setRawError('')
-    setNotice('')
   }
 
   function showError(message: string) {
@@ -74,7 +72,7 @@ export default function OnboardingPage() {
     console.error('[Pinned auth]', message)
   }
 
-  async function handlePassword(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     if (!email || password.length < 6) return
     setLoading(true)
@@ -82,22 +80,15 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient()
-
-      if (pwMode === 'signup') {
-        const { data, error: authError } = await supabase.auth.signUp({ email, password })
-        if (authError) { showError(authError.message); setLoading(false); return }
-        if (data.session) {
-          router.push('/onboarding/step-2') // confirmation off → logged in
-          return
-        }
-        // No session → email confirmation is ON. Offer to log in after confirming.
-        setNotice('Account created. If sign-in doesn’t continue automatically, confirm your email, then use “Log in”.')
-        const { data: loginData } = await supabase.auth.signInWithPassword({ email, password })
-        if (loginData.session) { router.push('/onboarding/step-2'); return }
-      } else {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-        if (authError) { showError(authError.message); setLoading(false); return }
-        if (data.session) { router.push('/dashboard'); return }
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        showError(authError.message)
+        setLoading(false)
+        return
+      }
+      if (data.session) {
+        router.push('/dashboard')
+        return
       }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Could not reach the server.')
@@ -133,7 +124,7 @@ export default function OnboardingPage() {
       const supabase = createClient()
       const { error: authError } = await supabase.auth.verifyOtp({ email, token, type: 'email' })
       if (authError) showError(authError.message)
-      else router.push('/onboarding/step-2')
+      else router.push('/dashboard')
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Could not reach the server.')
     }
@@ -154,6 +145,50 @@ export default function OnboardingPage() {
   const primaryBtn =
     'w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40'
 
+  if (mode === 'landing') {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
+        <div className="w-full max-w-sm">
+          <div className="mb-8">
+            <div className="mb-5 flex justify-center rounded-2xl bg-black px-6 py-8">
+              <Image src="/logo.png" alt="Pinned" width={200} height={63} priority />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight">Your store. Askable.</h1>
+            <p className="mt-3 text-muted">
+              Customers scan a QR, ask where anything is, and get a pin on your floor plan.
+              Set it up in minutes — no account required to try.
+            </p>
+            <p className="mt-3 text-xs text-faint">
+              Grocery · hardware · pharmacy · garden center · liquor · bookstore
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/onboarding/step-2"
+              className="w-full rounded-xl bg-foreground py-3.5 text-center text-sm font-medium text-background hover:opacity-90"
+            >
+              Set up your store — try free →
+            </Link>
+            <button
+              type="button"
+              onClick={() => setMode('login')}
+              className="w-full rounded-xl border border-border py-3 text-sm font-medium text-muted hover:bg-elevated hover:text-foreground"
+            >
+              Log in to your dashboard
+            </button>
+          </div>
+
+          <ul className="mt-8 space-y-2 text-sm text-muted">
+            <li className="flex gap-2"><span className="text-faint">1.</span> Name your store & pick a floor plan</li>
+            <li className="flex gap-2"><span className="text-faint">2.</span> Paste products, pin the top ones</li>
+            <li className="flex gap-2"><span className="text-faint">3.</span> Print the QR — customers find anything</li>
+          </ul>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
@@ -161,33 +196,13 @@ export default function OnboardingPage() {
           <div className="mb-5 flex justify-center rounded-2xl bg-black px-6 py-8">
             <Image src="/logo.png" alt="Pinned" width={200} height={63} priority />
           </div>
-          <p className="text-muted">
-            Turn your store into a map customers can ask questions to. Set it up in minutes.
-          </p>
-          <p className="mt-3 text-xs text-faint">
-            Grocery · hardware · pharmacy · garden center · liquor · bookstore — any store with aisles.
-          </p>
+          <h1 className="text-xl font-bold">Welcome back</h1>
+          <p className="mt-2 text-sm text-muted">Log in to manage your store map.</p>
         </div>
 
         {method === 'password' ? (
           <div className="flex flex-col gap-4">
-            {/* Sign up / Log in toggle */}
-            <div className="flex rounded-xl border border-border bg-surface p-1 text-sm">
-              <button
-                onClick={() => { setPwMode('signup'); reset() }}
-                className={`flex-1 rounded-lg py-2 font-medium transition-colors ${pwMode === 'signup' ? 'bg-foreground text-background' : 'text-muted'}`}
-              >
-                Create account
-              </button>
-              <button
-                onClick={() => { setPwMode('login'); reset() }}
-                className={`flex-1 rounded-lg py-2 font-medium transition-colors ${pwMode === 'login' ? 'bg-foreground text-background' : 'text-muted'}`}
-              >
-                Log in
-              </button>
-            </div>
-
-            <form onSubmit={handlePassword} className="flex flex-col gap-3">
+            <form onSubmit={handleLogin} className="flex flex-col gap-3">
               <input
                 type="email"
                 value={email}
@@ -201,15 +216,14 @@ export default function OnboardingPage() {
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="Password (min 6 characters)"
-                autoComplete={pwMode === 'signup' ? 'new-password' : 'current-password'}
+                placeholder="Password"
+                autoComplete="current-password"
                 required
                 className={inputClass}
               />
               <button type="submit" disabled={loading || !email || password.length < 6} className={primaryBtn}>
-                {loading ? 'Please wait…' : pwMode === 'signup' ? 'Create account & continue' : 'Log in'}
+                {loading ? 'Please wait…' : 'Log in'}
               </button>
-              {notice && <p className="text-xs text-muted">{notice}</p>}
               {errorBlock}
             </form>
 
@@ -246,7 +260,6 @@ export default function OnboardingPage() {
         ) : (
           <div className="flex flex-col gap-5">
             <div className="rounded-xl border border-border bg-elevated px-4 py-4 text-center">
-              <div className="mb-2 text-3xl">📬</div>
               <p className="text-sm font-medium text-foreground">Check your email</p>
               <p className="mt-1 text-xs text-muted">
                 Sent to {email}. Click the link, or enter the 6-digit code below.
@@ -278,10 +291,17 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        <div className="mt-6 text-center">
-          <Link href="/onboarding/step-2" className="text-sm font-medium underline underline-offset-2 hover:text-muted">
-            Try it first — no account needed →
+        <div className="mt-6 flex flex-col gap-2 text-center">
+          <Link href="/onboarding/step-2" className="text-sm font-medium underline underline-offset-2">
+            New here? Set up a store without logging in →
           </Link>
+          <button
+            type="button"
+            onClick={() => { setMode('landing'); reset() }}
+            className="text-xs text-faint underline underline-offset-2 hover:text-muted"
+          >
+            ← Back
+          </button>
         </div>
       </div>
     </main>

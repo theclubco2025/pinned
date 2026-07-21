@@ -84,7 +84,7 @@ export default function Step5Page() {
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${store.qr_slug}`
     : ''
 
-  if (!previewStore && !draftMode) {
+  if (!previewStore) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-faint">Loading…</p>
@@ -105,8 +105,8 @@ export default function Step5Page() {
         </div>
 
         <CustomerView
-          store={previewStore as Store}
-          products={draft?.products ?? []}
+          store={previewStore}
+          products={draft.products}
           draftMode={draftMode}
           compact
         />

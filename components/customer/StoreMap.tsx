@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import FloorPlanSVG from '@/components/floorplan/FloorPlanSVG'
 import { getFloorPlan } from '@/lib/floorPlans/templates'
 import { computeRoute } from '@/lib/floorPlans/route'
-import type { RoutePoint } from '@/lib/floorPlans/types'
+import type { FloorPlan, RoutePoint } from '@/lib/floorPlans/types'
 
 interface Pin {
   x_pct: number
@@ -15,14 +15,15 @@ interface Pin {
 interface Props {
   floorPlanUrl: string
   templateId?: string | null
+  plan?: FloorPlan | null
   pin?: Pin | null
   /** precomputed route; if omitted it's derived from the pin */
   route?: RoutePoint[] | null
   showRoute?: boolean
 }
 
-export default function StoreMap({ floorPlanUrl, templateId, pin, route, showRoute = true }: Props) {
-  const plan = getFloorPlan(templateId ?? null)
+export default function StoreMap({ floorPlanUrl, templateId, plan: planProp, pin, route, showRoute = true }: Props) {
+  const plan = planProp ?? getFloorPlan(templateId ?? null)
 
   const derivedRoute: RoutePoint[] | null = useMemo(() => {
     if (route !== undefined && route !== null) return route

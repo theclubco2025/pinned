@@ -55,6 +55,7 @@ export default function Step5Page() {
           floorPlanUrl: d.floorPlanUrl,
           storeType: d.storeType,
           templateId: d.templateId,
+          scan: d.scan,
           products: d.products,
         }),
       })

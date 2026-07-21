@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, type CSSProperties } from 'react'
 import Image from 'next/image'
 import StoreMap from '@/components/customer/StoreMap'
 import ChatInput from '@/components/customer/ChatInput'
+import CustomerReportActions from '@/components/customer/CustomerReportActions'
 import { localMatch, localMatchAll, buildLocalReply } from '@/lib/productMatch'
-import { getFloorPlan } from '@/lib/floorPlans/templates'
+import { resolveStorePlan } from '@/lib/floorPlans/resolve'
 import { computeRoute, routeHint, routeMeta } from '@/lib/floorPlans/route'
 import type { Store, Product } from '@/types'
 import type { DraftProduct } from '@/lib/draftStore'
@@ -46,11 +47,13 @@ export default function CustomerView({
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [activePin, setActivePin] = useState<ActivePin | null>(null)
+  const [activeProductId, setActiveProductId] = useState<string | null>(null)
+  const [activeProductName, setActiveProductName] = useState<string | null>(null)
   const [disambiguation, setDisambiguation] = useState<Matchable[]>([])
   const [analyticsSuggestions, setAnalyticsSuggestions] = useState<string[]>([])
 
   const resolvedTemplateId = templateId ?? store.store_type ?? null
-  const plan = getFloorPlan(resolvedTemplateId)
+  const plan = resolveStorePlan(store, resolvedTemplateId)
 
   const route = useMemo(
     () => (plan && activePin ? computeRoute(plan, activePin.x_pct, activePin.y_pct) : null),
@@ -82,6 +85,8 @@ export default function CustomerView({
     : undefined
 
   function applyPin(product: Matchable) {
+    setActiveProductId(product.id)
+    setActiveProductName(product.name)
     if (product.x_pct != null && product.y_pct != null) {
       setActivePin({
         x_pct: product.x_pct,
@@ -130,6 +135,8 @@ export default function CustomerView({
         return next
       })
       setActivePin(pin)
+      setActiveProductId(optimistic?.id ?? null)
+      setActiveProductName(optimistic?.name ?? null)
       setLoading(false)
       return
     }
@@ -159,8 +166,12 @@ export default function CustomerView({
           y_pct: result.y_pct,
           label: result.aisle_label || result.name || '',
         })
+        setActiveProductId(result.productId)
+        setActiveProductName(result.name)
       } else if (!optimistic || !buildLocalReply(optimistic).pin) {
         setActivePin(null)
+        setActiveProductId(null)
+        setActiveProductName(null)
       }
     } catch {
       const { message, pin } = buildLocalReply(optimistic, store.name)
@@ -170,6 +181,8 @@ export default function CustomerView({
         return next
       })
       setActivePin(pin)
+      setActiveProductId(optimistic?.id ?? null)
+      setActiveProductName(optimistic?.name ?? null)
     } finally {
       setLoading(false)
     }
@@ -202,6 +215,7 @@ export default function CustomerView({
             <StoreMap
               floorPlanUrl={store.floor_plan_url ?? ''}
               templateId={resolvedTemplateId}
+              plan={plan}
               pin={activePin}
               route={route}
             />
@@ -215,6 +229,14 @@ export default function CustomerView({
                   </span>
                 )}
               </div>
+            )}
+            {activePin && (
+              <CustomerReportActions
+                storeId={store.id}
+                productId={activeProductId}
+                productName={activeProductName}
+                draftMode={draftMode}
+              />
             )}
           </div>
         )}

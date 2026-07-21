@@ -2,91 +2,89 @@
 
 ## Executive summary
 
-True LiDAR floor scanning (Apple RoomPlan / ARKit) **cannot run inside the current Pinned web app or PWA**. It requires a **native iOS companion** that exports room geometry, which Pinned then converts into our structured `FloorPlan` format. This is a **medium–large follow-on project**, best pursued after the web product validates demand.
+True LiDAR floor scanning (Apple RoomPlan / ARKit) **cannot run inside the browser**. Pinned ships a **Capacitor iOS app** that captures room geometry and uploads it to the web backend. The web app **consumes scanned maps** for customer wayfinding, routing, and product pins.
 
-## What LiDAR would give us
+**Status:** Capacitor shell + RoomPlan plugin scaffolded in-repo. Web scan pipeline, customer feedback loop, and scanned-plan rendering are implemented. App Store submission requires Apple Developer + physical LiDAR device QA on Mac/Xcode.
+
+## Accuracy tiers (honest product model)
+
+| Tier | What you get | How |
+|---|---|---|
+| **Zone / aisle (v1)** | “Dairy, ~Aisle 4” | LiDAR scan → admin labels zones → AI keyword auto-place |
+| **Aisle + side** | “Left side of Aisle 4” | Admin splits zones after scan (roadmap) |
+| **Shelf-exact** | Pin on exact facing | Guided barcode-at-shelf walk in native app (roadmap) |
+
+LiDAR gives **geometry**, not product labels. Admin workflow + customer feedback (“Not here”, “Out of stock”) keep locations trustworthy over time.
+
+## What LiDAR gives us
 
 - Accurate store outline and fixture positions
 - Obstacle-aware wayfinding without manual template editing
 - Premium “scan your store in 60 seconds” onboarding story
+- Entrance anchor for 2D routing (no GPS indoors)
 
 ## Platform reality
 
 | Platform | Capability | Notes |
-|----------|------------|-------|
+|---|---|---|
 | **Web / PWA** | No RoomPlan | Browsers cannot access ARKit RoomPlan or device LiDAR APIs |
-| **iOS (native)** | ARKit RoomPlan | Requires iPhone/iPad Pro with LiDAR; Apple Developer account |
-| **Android** | ARCore | No direct RoomPlan equivalent; mesh quality varies by device |
+| **iOS (Capacitor)** | ARKit RoomPlan | Requires LiDAR iPhone/iPad; see [NATIVE_IOS.md](./NATIVE_IOS.md) |
+| **Android** | ARCore | No direct RoomPlan equivalent; future follow-on |
 
-RoomPlan produces room polygons and optional USDZ exports. That data must be **converted server-side** (or on-device) into Pinned’s `FloorPlan` schema (`lib/floorPlans/types.ts`).
-
-## Recommended architecture
+## Architecture (implemented)
 
 ```mermaid
 flowchart LR
-  A["Native iOS app\n(Capacitor + ARKit or SwiftUI)"] --> B["RoomPlan scan"]
-  B --> C["Export polygon / USDZ"]
-  C --> D["POST /api/stores/floor-scan\n(authenticated)"]
-  D --> E["Convert to FloorPlan JSON"]
-  E --> F["Web app consumes\nwayfinding + tagging unchanged"]
+  A["Pinned iOS app\nCapacitor + RoomPlan"] --> B["RoomScan JSON"]
+  B --> C["POST /api/stores/floor-scan"]
+  C --> D["roomScanToFloorPlan"]
+  D --> E["stores.floor_plan JSONB"]
+  E --> F["CustomerView + StoreMap + routing"]
+  G["Customer feedback buttons"] --> H["customer_reports + staff push"]
 ```
 
-1. **Thin native shell** — Capacitor plugin wrapping ARKit RoomPlan, or a standalone SwiftUI utility app.
-2. **Export format** — Room boundary polygon + optional zone labels (manual or AI-assisted).
-3. **Upload endpoint** — Authenticated API stores raw scan + derived `FloorPlan`.
-4. **Web app** — No change to customer wayfinding or tagging UX; only the map source differs.
+## Customer trust loop (shipped on web)
 
-## Effort and risk
+When a pin is wrong, customers tap:
 
-| Area | Estimate | Risk |
-|------|----------|------|
-| Native iOS RoomPlan integration | 2–4 weeks | Medium — device testing, App Store review |
-| Polygon → FloorPlan converter | 1–2 weeks | Medium — irregular store layouts |
-| Upload + persistence API | 3–5 days | Low |
-| QA on real stores | Ongoing | High — lighting, clutter, open aisles |
+- **Not here** → `missing` report → staff queue
+- **Out of stock** → marks product OOS + report
+- **Report a problem** → optional note → staff notification
 
-**Dependencies:** Apple Developer Program, physical LiDAR hardware for QA, native build pipeline separate from Vercel.
+Staff see reports at `/staff?storeId=…` (PIN) and owners on the dashboard. Web push fires when VAPID keys are configured.
 
-## What is already wired in code (native-ready)
-
-The web app ships today with the entire scan pipeline scaffolded, so the native
-companion can plug in with **zero web changes**:
+## What is wired in code
 
 | Piece | Location | Status |
-|-------|----------|--------|
-| Scan data model (RoomPlan-shaped) | `lib/scan/types.ts` | Done |
-| Capability detection + native bridge contract (`window.PinnedNativeScan`) | `lib/scan/capability.ts` | Done |
-| RoomScan → `FloorPlan` converter | `lib/scan/convert.ts` | Done |
-| Authenticated upload endpoint | `app/api/stores/floor-scan/route.ts` | Done |
-| Persistence columns (`floor_scan`, `floor_plan`) | `supabase/migrations/005_floor_scan.sql` | Done |
-| Onboarding scan entry point (graceful web fallback) | `components/onboarding/ScanStorePanel.tsx` | Done |
+|---|---|---|
+| Scan data model | `lib/scan/types.ts` | Done |
+| Native bridge contract | `lib/scan/capability.ts`, `lib/native/installScanBridge.ts` | Done |
+| RoomScan → FloorPlan | `lib/scan/convert.ts` | Done |
+| Scanned plan rendering | `lib/floorPlans/resolve.ts`, `StoreMap`, `CustomerView` | Done |
+| Upload endpoint | `app/api/stores/floor-scan/route.ts` | Done |
+| Onboarding scan wire-up | `ScanStorePanel`, step-2, draft persist | Done |
+| Customer reports | `006_customer_reports.sql`, `/api/reports`, UI buttons | Done |
+| Persistence columns | `005_floor_scan.sql`, `006_customer_reports.sql` | Run in Supabase |
+| Capacitor iOS + RoomPlan plugin | `ios/App/App/PinnedScanPlugin.swift` | Scaffolded — QA on device |
+| Native build guide | `docs/NATIVE_IOS.md` | Done |
 
-The only remaining work for real scanning is the **native capture app** that
-implements the `PinnedNativeScanBridge` interface and injects it into the web
-view (or POSTs a `RoomScan` to the endpoint). Everything downstream already
-consumes it.
+## Interim web accuracy (without LiDAR)
 
-## What we ship now (interim web accuracy)
-
-Without LiDAR, Pinned improves placement accuracy via:
-
-- **Structured templates** with labeled zones (`lib/floorPlans/templates.ts`)
-- **Snap-to-zone** when placing pins on templates
-- **Pinch/scroll zoom + pan** for precise tap placement
-- **AI auto-placement** mapping products to zones (`/api/products/auto-place`)
-- **Animated wayfinding** from entrance to pin on template stores
-
-These deliver most of the customer-facing “wow” without native hardware.
+- Structured templates with labeled zones
+- Snap-to-zone tagging
+- AI auto-placement (`/api/products/auto-place`)
+- Animated wayfinding from entrance to pin
 
 ## Recommendation
 
-1. **Ship and sell the web product** with structured templates, wayfinding, and auto-placement.
-2. **Validate with paying stores** — ask whether photo/template setup is the main blocker.
-3. **If scan demand is strong**, build the iOS companion as a fast-follow (Capacitor + ARKit plugin is the lowest-friction path for a team already on Next.js).
-4. **Do not block web launch** on LiDAR; treat it as a premium tier or upsell later.
+1. **Run migrations 005 + 006** in Supabase.
+2. **Deploy web** — feedback buttons and scanned-plan rendering work immediately.
+3. **Build iOS on Mac** — `npm run cap:sync`, open Xcode, test scan on LiDAR hardware.
+4. **Submit to App Store** — expect 1–3 day review; native RoomPlan justifies the shell vs pure web wrapper.
+5. **Next roadmap:** post-scan aisle labeling UI, barcode guided tagging, optional customer AR arrows.
 
 ## References
 
 - [Apple RoomPlan](https://developer.apple.com/augmented-reality/roomplan/)
-- Pinned structured floor plan types: `lib/floorPlans/types.ts`
-- Interim placement UX: `components/onboarding/SpeedTagger.tsx`
+- [NATIVE_IOS.md](./NATIVE_IOS.md) — build + App Store checklist
+- Pinned floor plan types: `lib/floorPlans/types.ts`

@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { roomScanToFloorPlan } from '@/lib/scan/convert'
+import type { RoomScan } from '@/lib/scan/types'
+import type { StarterPackId } from '@/lib/starterPacks'
 
 function slugify(name: string): string {
   return (
@@ -26,11 +29,12 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { storeName, floorPlanUrl, storeType, templateId, products } = body as {
+  const { storeName, floorPlanUrl, storeType, templateId, scan, products } = body as {
     storeName: string
     floorPlanUrl: string | null
     storeType?: string | null
     templateId?: string | null
+    scan?: RoomScan | null
     products: DraftProductPayload[]
   }
 
@@ -103,6 +107,22 @@ export async function POST(request: Request) {
     }
 
     await supabase.from('stores').update({ floor_plan_url: publicUrl }).eq('id', storeId)
+  }
+
+  if (scan?.bounds && Array.isArray(scan.objects)) {
+    const floorPlan = roomScanToFloorPlan(scan, {
+      id: `scan-${storeId}`,
+      label: storeName.trim(),
+      storeType: (storeType ?? templateId ?? 'grocery') as StarterPackId,
+    })
+    try {
+      await supabase
+        .from('stores')
+        .update({ floor_scan: scan, floor_plan: floorPlan })
+        .eq('id', storeId)
+    } catch {
+      // columns may not exist until migration 005
+    }
   }
 
   await supabase.from('products').delete().eq('store_id', storeId)

@@ -10,6 +10,7 @@ interface ProductRow {
   y_pct: number | null
   tagged: boolean
   aisle_label: string | null
+  in_stock?: boolean | null
 }
 
 function extractJson(text: string): { productId: string | null; message: string } | null {
@@ -31,14 +32,18 @@ function extractJson(text: string): { productId: string | null; message: string 
 }
 
 function respond(product: ProductRow | null, message: string) {
-  const mapped = !!product && product.tagged && product.x_pct != null && product.y_pct != null
+  const outOfStock = product?.in_stock === false
+  const mapped =
+    !!product && product.tagged && product.x_pct != null && product.y_pct != null && !outOfStock
   return NextResponse.json({
     productId: product?.id ?? null,
     name: product?.name ?? null,
     aisle_label: product?.aisle_label ?? null,
     x_pct: mapped ? product!.x_pct : null,
     y_pct: mapped ? product!.y_pct : null,
-    message,
+    message: outOfStock && product
+      ? `${product.name} looks out of stock right now — ask a team member to confirm.`
+      : message,
   })
 }
 
@@ -70,7 +75,7 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const { data, error: dbError } = await supabase
     .from('products')
-    .select('id, name, x_pct, y_pct, tagged, aisle_label')
+    .select('id, name, x_pct, y_pct, tagged, aisle_label, in_stock')
     .eq('store_id', storeId)
 
   if (dbError) return NextResponse.json({ error: dbError.message }, { status: 500 })

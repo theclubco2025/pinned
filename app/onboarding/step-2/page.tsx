@@ -15,6 +15,8 @@ import {
 } from '@/lib/draftStore'
 import { getTemplate } from '@/lib/floorTemplates'
 import type { StarterPackId } from '@/lib/starterPacks'
+import type { RoomScan } from '@/lib/scan/types'
+import type { FloorPlan } from '@/lib/floorPlans/types'
 import { createClient } from '@/lib/supabase-browser'
 import { supabaseConfigured } from '@/lib/supabase-config'
 
@@ -30,6 +32,8 @@ export default function Step2Page() {
   const [step, setStep] = useState<Step>('type')
   const [floorMode, setFloorMode] = useState<FloorMode>('template')
   const [creatingStore, setCreatingStore] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -82,6 +86,47 @@ export default function Step2Page() {
     setStep('floor')
   }
 
+  async function handleScanComplete(scan: RoomScan) {
+    setScanMessage('')
+    setScanning(true)
+    setError('')
+
+    try {
+      if (authenticated && storeId) {
+        const res = await fetch('/api/stores/floor-scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            storeId,
+            scan,
+            storeType: draft.storeType,
+            label: draft.storeName.trim() || undefined,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) {
+          setError(data.error ?? 'Could not save scan')
+          setScanning(false)
+          return
+        }
+        updateDraft({
+          scan,
+          floorPlan: data.floorPlan as FloorPlan,
+          templateId: null,
+          floorPlanUrl: null,
+        })
+        setScanMessage('Scan saved — your real store map is ready.')
+      } else {
+        updateDraft({ scan, floorPlan: null, templateId: null, floorPlanUrl: null })
+        setScanMessage('Scan captured — it will upload when you create your account.')
+      }
+      setFloorMode('scan')
+    } catch {
+      setError('Scan upload failed. Try again.')
+    }
+    setScanning(false)
+  }
+
   async function handleContinue(e: React.FormEvent) {
     e.preventDefault()
     if (!draft?.storeName.trim()) return
@@ -111,7 +156,7 @@ export default function Step2Page() {
     router.push('/onboarding/step-3')
   }
 
-  const hasFloor = !!draft.floorPlanUrl || !!draft.templateId
+  const hasFloor = !!draft.floorPlanUrl || !!draft.templateId || !!draft.scan || !!draft.floorPlan
 
   if (step === 'type') {
     return (
@@ -194,7 +239,14 @@ export default function Step2Page() {
                 onSelect={(id, url) => updateDraft({ templateId: id, storeType: id as StarterPackId, floorPlanUrl: url })}
               />
             ) : floorMode === 'scan' ? (
-              <ScanStorePanel />
+              <>
+                <ScanStorePanel onScanned={handleScanComplete} />
+                {scanning && <p className="mt-2 text-sm text-muted">Saving scan…</p>}
+                {scanMessage && <p className="mt-2 text-sm text-accent">{scanMessage}</p>}
+                {draft.scan && !scanMessage && (
+                  <p className="mt-2 text-sm text-accent">Scan ready — continue to add products.</p>
+                )}
+              </>
             ) : authenticated && storeId ? (
               <FloorPlanUpload
                 storeId={storeId}

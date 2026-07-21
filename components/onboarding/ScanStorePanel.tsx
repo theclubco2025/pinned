@@ -1,30 +1,25 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
-import { getScanCapability, requestStoreScan, type ScanCapability } from '@/lib/scan/capability'
+import { useState, useEffect } from 'react'
+import { getScanCapability, requestStoreScan } from '@/lib/scan/capability'
+import { installNativeScanBridge } from '@/lib/native/installScanBridge'
+import type { ScanCapability } from '@/lib/scan/capability'
 import type { RoomScan } from '@/lib/scan/types'
 
 interface Props {
   onScanned?: (scan: RoomScan) => void
 }
 
-// Capability can't change during a session — cache a stable snapshot so
-// useSyncExternalStore doesn't loop, and SSR renders the neutral "checking" UI.
-let cachedCap: ScanCapability | null = null
-function capSnapshot(): ScanCapability {
-  if (!cachedCap) cachedCap = getScanCapability()
-  return cachedCap
-}
-const noopSubscribe = () => () => {}
-
 export default function ScanStorePanel({ onScanned }: Props) {
-  const cap = useSyncExternalStore<ScanCapability | null>(
-    noopSubscribe,
-    capSnapshot,
-    () => null
-  )
+  const [cap, setCap] = useState<ScanCapability | null>(null)
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    installNativeScanBridge().then(() => {
+      setCap(getScanCapability())
+    })
+  }, [])
 
   async function handleScan() {
     setScanning(true)
@@ -71,7 +66,6 @@ export default function ScanStorePanel({ onScanned }: Props) {
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2 rounded-xl border border-border bg-elevated px-4 py-3">
-              <span className="text-lg"></span>
               <p className="text-sm text-muted">{cap?.reason ?? 'Checking device…'}</p>
             </div>
             <p className="text-xs text-faint">

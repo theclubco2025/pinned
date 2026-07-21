@@ -7,6 +7,7 @@ import AnalyticsPanel from './AnalyticsPanel'
 import BrandingPanel from './BrandingPanel'
 import StaffPinPanel from './StaffPinPanel'
 import PushNotifications from './PushNotifications'
+import ReportsPanel from './ReportsPanel'
 import ThemeToggle from '@/components/ThemeToggle'
 
 export default async function DashboardPage() {
@@ -53,6 +54,7 @@ export default async function DashboardPage() {
         </div>
 
         <AnalyticsPanel />
+        <ReportsPanel storeId={store.id} />
         <DashboardQR store={store as Store} />
         <BrandingPanel store={store as Store} />
         <StaffPinPanel store={store as Store} />

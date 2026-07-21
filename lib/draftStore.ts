@@ -1,4 +1,7 @@
 import type { StarterPackId } from '@/lib/starterPacks'
+import type { RoomScan } from '@/lib/scan/types'
+import type { FloorPlan } from '@/lib/floorPlans/types'
+import { roomScanToFloorPlan } from '@/lib/scan/convert'
 
 export interface DraftProduct {
   id: string
@@ -14,6 +17,8 @@ export interface DraftStore {
   storeType: StarterPackId | null
   floorPlanUrl: string | null
   templateId: string | null
+  scan: RoomScan | null
+  floorPlan: FloorPlan | null
   products: DraftProduct[]
 }
 
@@ -24,7 +29,15 @@ function newId(): string {
 }
 
 export function emptyDraft(): DraftStore {
-  return { storeName: '', storeType: null, floorPlanUrl: null, templateId: null, products: [] }
+  return {
+    storeName: '',
+    storeType: null,
+    floorPlanUrl: null,
+    templateId: null,
+    scan: null,
+    floorPlan: null,
+    products: [],
+  }
 }
 
 export function loadDraft(): DraftStore {
@@ -68,15 +81,25 @@ export function draftProductFromName(name: string): DraftProduct {
 }
 
 export function draftToStoreLike(draft: DraftStore) {
+  let floorPlan = draft.floorPlan
+  if (!floorPlan && draft.scan?.bounds) {
+    floorPlan = roomScanToFloorPlan(draft.scan, {
+      id: 'draft-scan',
+      label: draft.storeName || 'Scanned store',
+      storeType: draft.storeType ?? 'grocery',
+    })
+  }
   return {
     id: 'draft',
     name: draft.storeName,
     floor_plan_url: draft.floorPlanUrl,
+    floor_plan: floorPlan,
     qr_slug: 'preview',
     owner_email: '',
     created_at: new Date().toISOString(),
     primary_color: null,
     logo_url: null,
+    store_type: draft.storeType,
   }
 }
 

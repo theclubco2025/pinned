@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { localMatch } from '@/lib/productMatch'
 
 interface ProductRow {
   id: string
@@ -11,8 +12,6 @@ interface ProductRow {
   aisle_label: string | null
 }
 
-// Pull the first JSON object out of a model reply, tolerating ```json fences,
-// leading prose, or trailing commentary.
 function extractJson(text: string): { productId: string | null; message: string } | null {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
   const candidate = fenced ? fenced[1] : text
@@ -31,24 +30,6 @@ function extractJson(text: string): { productId: string | null; message: string 
   }
 }
 
-// Local fallback so the demo still answers if the API key/quota is unavailable.
-function localMatch(question: string, products: ProductRow[]): ProductRow | null {
-  const q = question.toLowerCase()
-  let best: { product: ProductRow; score: number } | null = null
-  for (const p of products) {
-    const name = p.name.toLowerCase()
-    let score = 0
-    if (q.includes(name)) score = name.length
-    else {
-      for (const word of name.split(/\s+/)) {
-        if (word.length > 2 && q.includes(word)) score += word.length
-      }
-    }
-    if (score > 0 && (!best || score > best.score)) best = { product: p, score }
-  }
-  return best?.product ?? null
-}
-
 function respond(product: ProductRow | null, message: string) {
   const mapped = !!product && product.tagged && product.x_pct != null && product.y_pct != null
   return NextResponse.json({
@@ -59,6 +40,23 @@ function respond(product: ProductRow | null, message: string) {
     y_pct: mapped ? product!.y_pct : null,
     message,
   })
+}
+
+async function logQuery(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  storeId: string,
+  question: string,
+  matchedProductId: string | null
+) {
+  try {
+    await supabase.from('queries').insert({
+      store_id: storeId,
+      question,
+      matched_product_id: matchedProductId,
+    })
+  } catch {
+    // queries table may not exist yet — ignore
+  }
 }
 
 export async function POST(request: Request) {
@@ -79,8 +77,11 @@ export async function POST(request: Request) {
 
   const products = (data ?? []) as ProductRow[]
   if (!products.length) {
+    await logQuery(supabase, storeId, question, null)
     return respond(null, "This store hasn't added its products yet — ask a team member.")
   }
+
+  const quickMatch = localMatch(question, products)
 
   const productContext = products.map(p => ({
     id: p.id,
@@ -119,18 +120,20 @@ Guidance:
       const message = parsed.message || (product
         ? `${product.name} — look for the pin on the map!`
         : "It doesn't look like the store carries that — ask a team member to be sure.")
+      await logQuery(supabase, storeId, question, product?.id ?? null)
       return respond(product, message)
     }
-    // Model didn't return usable JSON — fall through to local match.
   } catch {
-    // API unavailable — fall through to local match so the demo still works.
+    // fall through to local match
   }
 
-  const product = localMatch(question, products)
+  const product = quickMatch ?? localMatch(question, products)
   if (!product) {
+    await logQuery(supabase, storeId, question, null)
     return respond(null, "It doesn't look like the store carries that — ask a team member to be sure.")
   }
   const mapped = product.tagged && product.x_pct != null
+  await logQuery(supabase, storeId, question, product.id)
   return respond(
     product,
     mapped

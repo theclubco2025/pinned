@@ -1,14 +1,73 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import CustomerView from '@/app/[qr_slug]/CustomerView'
+import QRPoster from '@/components/dashboard/QRPoster'
+import AccountGate from '@/components/onboarding/AccountGate'
+import {
+  loadDraft,
+  clearDraft,
+  draftToStoreLike,
+  emptyDraft,
+  type DraftStore,
+} from '@/lib/draftStore'
 import type { Store } from '@/types'
 
 export default function Step5Page() {
+  const router = useRouter()
   const [store, setStore] = useState<Store | null>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [qrReady, setQrReady] = useState(false)
+  const [draft] = useState<DraftStore>(() =>
+    typeof window !== 'undefined' ? loadDraft() : emptyDraft()
+  )
+  const [draftMode, setDraftMode] = useState(true)
+  const [persisting, setPersisting] = useState(false)
+  const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/stores')
+      .then(r => (r.ok ? r.json() : { store: null }))
+      .then(data => {
+        if (data.store) {
+          setStore(data.store)
+          setDraftMode(false)
+        }
+      })
+  }, [])
+
+  async function persistDraft() {
+    const d = loadDraft()
+    if (!d.storeName.trim()) return
+    setPersisting(true)
+    setError('')
+
+    try {
+      const res = await fetch('/api/draft/persist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storeName: d.storeName,
+          floorPlanUrl: d.floorPlanUrl,
+          products: d.products,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'Could not save store')
+        setPersisting(false)
+        return
+      }
+      clearDraft()
+      setStore(data.store)
+      setDraftMode(false)
+      router.refresh()
+    } catch {
+      setError('Something went wrong saving your store')
+    }
+    setPersisting(false)
+  }
 
   async function copyLink() {
     if (!store) return
@@ -17,25 +76,15 @@ export default function Step5Page() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  useEffect(() => {
-    fetch('/api/stores')
-      .then(r => r.json())
-      .then(d => setStore(d.store ?? null))
-  }, [])
+  const previewStore = draftMode
+    ? draftToStoreLike(draft)
+    : store
 
-  useEffect(() => {
-    if (!store) return
+  const storeUrl = store
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/${store.qr_slug}`
+    : ''
 
-    const storeUrl = `${window.location.origin}/${store.qr_slug}`
-
-    import('qrcode').then(QRCode => {
-      QRCode.toCanvas(canvasRef.current!, storeUrl, { width: 240, margin: 2 }, () => {
-        setQrReady(true)
-      })
-    })
-  }, [store])
-
-  if (!store) {
+  if (!previewStore && !draftMode) {
     return (
       <main className="flex min-h-screen items-center justify-center">
         <p className="text-sm text-faint">Loading…</p>
@@ -43,51 +92,57 @@ export default function Step5Page() {
     )
   }
 
-  const storeUrl = typeof window !== 'undefined' ? `${window.location.origin}/${store.qr_slug}` : ''
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm text-center">
-        <div className="mb-4 text-4xl">🎉</div>
-        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 5 of 5</p>
-        <h1 className="mb-2 text-2xl font-bold">You're live!</h1>
-        <p className="mb-8 text-sm text-muted">
-          Print this QR code and post it around <span className="font-medium text-foreground">{store.name}</span>.
-          Customers scan to ask where anything is.
-        </p>
+    <main className="min-h-screen px-4 py-8">
+      <div className="mx-auto max-w-lg space-y-8">
+        <div className="text-center">
+          <div className="mb-4 text-4xl">🎉</div>
+          <p className="mb-1 text-xs font-medium uppercase tracking-wide text-faint">Step 4 of 5 · You&apos;re live</p>
+          <h1 className="text-2xl font-bold">{previewStore.name} is ready!</h1>
+          <p className="mt-2 text-sm text-muted">
+            Try it below — then {draftMode ? 'create an account to save' : 'print your QR and post it by the entrance'}.
+          </p>
+        </div>
 
-        <div className="mb-6 flex justify-center">
-          <div className="rounded-2xl bg-white p-4 shadow-sm">
-            <canvas ref={canvasRef} className={qrReady ? '' : 'opacity-0'} />
-            {!qrReady && (
-              <div className="flex h-60 w-60 items-center justify-center">
-                <p className="text-sm text-zinc-400">Generating QR…</p>
-              </div>
+        <CustomerView
+          store={previewStore as Store}
+          products={draft?.products ?? []}
+          draftMode={draftMode}
+          compact
+        />
+
+        {draftMode ? (
+          <AccountGate onSuccess={persistDraft} />
+        ) : (
+          <>
+            {store && (
+              <>
+                <QRPoster storeName={store.name} storeUrl={storeUrl} />
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  className="w-full break-all rounded-lg border border-border bg-elevated px-3 py-2 font-mono text-xs text-muted hover:text-foreground"
+                >
+                  {copied ? '✓ Copied to clipboard' : storeUrl}
+                </button>
+              </>
             )}
-          </div>
-        </div>
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/dashboard"
+                className="w-full rounded-xl bg-foreground py-3 text-center text-sm font-medium text-background hover:opacity-90"
+              >
+                Go to dashboard →
+              </Link>
+              <Link href="/onboarding/step-4" className="text-center text-sm text-faint underline">
+                Keep tagging products
+              </Link>
+            </div>
+          </>
+        )}
 
-        <button
-          onClick={copyLink}
-          className="mb-6 w-full break-all rounded-lg border border-border bg-elevated px-3 py-2 font-mono text-xs text-muted transition-colors hover:text-foreground"
-        >
-          {copied ? '✓ Copied to clipboard' : storeUrl}
-        </button>
-
-        <div className="flex flex-col gap-3">
-          <Link
-            href="/dashboard"
-            className="w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90"
-          >
-            Go to dashboard →
-          </Link>
-          <Link
-            href="/onboarding/step-4"
-            className="w-full text-sm text-faint underline underline-offset-2 hover:text-muted"
-          >
-            Keep tagging products
-          </Link>
-        </div>
+        {error && <p className="text-center text-sm text-red-500">{error}</p>}
+        {persisting && <p className="text-center text-sm text-muted">Saving your store…</p>}
       </div>
     </main>
   )

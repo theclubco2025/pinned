@@ -55,10 +55,11 @@ export default function OnboardingPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const err = params.get('error')
-    if (err) {
+    if (!err) return
+    queueMicrotask(() => {
       setError(friendlyError(err))
       setRawError(err)
-    }
+    })
   }, [])
 
   function reset() {
@@ -278,8 +279,8 @@ export default function OnboardingPage() {
         )}
 
         <div className="mt-6 text-center">
-          <Link href="/demo" className="text-sm text-faint underline underline-offset-2 hover:text-muted">
-            Preview the app without signing in →
+          <Link href="/onboarding/step-2" className="text-sm font-medium underline underline-offset-2 hover:text-muted">
+            Try it first — no account needed →
           </Link>
         </div>
       </div>

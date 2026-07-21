@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import Image from 'next/image'
 import StoreMap from '@/components/customer/StoreMap'
 import ChatInput from '@/components/customer/ChatInput'
-import type { Store } from '@/types'
+import { localMatch, buildLocalReply } from '@/lib/productMatch'
+import type { Store, Product } from '@/types'
+import type { DraftProduct } from '@/lib/draftStore'
 
 interface AskResult {
   productId: string | null
@@ -21,10 +23,28 @@ interface Message {
   pending?: boolean
 }
 
-export default function CustomerView({ store }: { store: Store }) {
+type Matchable = Product | DraftProduct
+
+interface Props {
+  store: Store
+  products?: Matchable[]
+  draftMode?: boolean
+  compact?: boolean
+}
+
+export default function CustomerView({ store, products = [], draftMode = false, compact = false }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [activePin, setActivePin] = useState<{ x_pct: number; y_pct: number; label: string } | null>(null)
+
+  const taggedWithPins = products.filter(
+    p => p.tagged && p.x_pct != null && p.y_pct != null
+  )
+  const suggestions = taggedWithPins.slice(0, 3)
+
+  const accentStyle = store.primary_color
+    ? ({ '--color-accent': store.primary_color } as CSSProperties)
+    : undefined
 
   async function handleAsk(question: string) {
     setLoading(true)
@@ -33,6 +53,28 @@ export default function CustomerView({ store }: { store: Store }) {
       { role: 'user', text: question },
       { role: 'assistant', text: 'Looking…', pending: true },
     ])
+
+    const matchList = products.length
+      ? products
+      : []
+
+    const optimistic = localMatch(question, matchList)
+    if (optimistic) {
+      const { pin } = buildLocalReply(optimistic, store.name)
+      if (pin) setActivePin(pin)
+    }
+
+    if (draftMode) {
+      const { message, pin } = buildLocalReply(optimistic, store.name)
+      setMessages(prev => {
+        const next = [...prev]
+        next[next.length - 1] = { role: 'assistant', text: message }
+        return next
+      })
+      setActivePin(pin)
+      setLoading(false)
+      return
+    }
 
     try {
       const res = await fetch('/api/ask', {
@@ -54,28 +96,37 @@ export default function CustomerView({ store }: { store: Store }) {
           y_pct: result.y_pct,
           label: result.aisle_label || result.name || '',
         })
-      } else {
+      } else if (!optimistic || !buildLocalReply(optimistic).pin) {
         setActivePin(null)
       }
     } catch {
+      const { message, pin } = buildLocalReply(optimistic, store.name)
       setMessages(prev => {
         const next = [...prev]
-        next[next.length - 1] = {
-          role: 'assistant',
-          text: 'Sorry, something went wrong. Please try again.',
-        }
+        next[next.length - 1] = { role: 'assistant', text: message }
         return next
       })
+      setActivePin(pin)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-background">
+    <main
+      className={`flex flex-col bg-background ${compact ? 'min-h-[480px] rounded-xl border border-border overflow-hidden' : 'min-h-screen'}`}
+      style={accentStyle}
+    >
       <header className="border-b border-border px-4 py-3">
-        <h1 className="font-semibold">{store.name}</h1>
-        <p className="text-xs text-faint">Ask me where anything is</p>
+        <div className="flex items-center gap-3">
+          {store.logo_url && (
+            <img src={store.logo_url} alt="" className="h-8 w-8 rounded object-contain" />
+          )}
+          <div>
+            <h1 className="font-semibold">{store.name}</h1>
+            <p className="text-xs text-faint">Ask me where anything is</p>
+          </div>
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -83,17 +134,30 @@ export default function CustomerView({ store }: { store: Store }) {
           <StoreMap floorPlanUrl={store.floor_plan_url} pin={activePin} />
         )}
 
-        {messages.length === 0 && (
+        {messages.length === 0 && suggestions.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleAsk(`Where's the ${p.name.toLowerCase()}?`)}
+                disabled={loading}
+                className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted hover:border-accent hover:text-foreground"
+              >
+                Where&apos;s the {p.name.toLowerCase()}?
+              </button>
+            ))}
+          </div>
+        )}
+
+        {messages.length === 0 && suggestions.length === 0 && (
           <div className="rounded-xl bg-elevated px-4 py-3 text-sm text-muted">
-            Ask me where to find anything — try &ldquo;where&rsquo;s the milk?&rdquo; or &ldquo;something to clean windows.&rdquo;
+            Ask me where to find anything — try &ldquo;where&rsquo;s the milk?&rdquo;
           </div>
         )}
 
         {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+          <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                 msg.role === 'user'
@@ -113,10 +177,12 @@ export default function CustomerView({ store }: { store: Store }) {
         <ChatInput disabled={loading} onSubmit={handleAsk} />
       </div>
 
-      <div className="flex items-center justify-center gap-2 bg-black py-2">
-        <span className="text-[10px] uppercase tracking-wide text-zinc-500">Powered by</span>
-        <Image src="/logo.png" alt="Pinned" width={56} height={18} />
-      </div>
+      {!compact && (
+        <div className="flex items-center justify-center gap-2 bg-black py-2">
+          <span className="text-[10px] uppercase tracking-wide text-zinc-500">Powered by</span>
+          <Image src="/logo.png" alt="Pinned" width={56} height={18} />
+        </div>
+      )}
     </main>
   )
 }

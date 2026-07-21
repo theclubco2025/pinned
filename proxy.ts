@@ -45,12 +45,30 @@ export async function proxy(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const { pathname } = request.nextUrl
 
-    if (!user && (pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding'))) {
-      if (pathname !== '/onboarding') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/onboarding'
-        return NextResponse.redirect(url)
-      }
+    const draftSteps = [
+      '/onboarding/step-2',
+      '/onboarding/step-3',
+      '/onboarding/step-4',
+      '/onboarding/step-5',
+    ]
+    const isDraftStep = draftSteps.some(s => pathname === s || pathname.startsWith(s + '/'))
+
+    if (!user && pathname.startsWith('/dashboard')) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/onboarding/step-2'
+      return NextResponse.redirect(url)
+    }
+
+    if (!user && pathname === '/onboarding') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/onboarding/step-2'
+      return NextResponse.redirect(url)
+    }
+
+    if (!user && pathname.startsWith('/onboarding') && !isDraftStep && pathname !== '/onboarding') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/onboarding/step-2'
+      return NextResponse.redirect(url)
     }
   } catch {
     // Never let an auth hiccup 500 the whole site — fail open to the page,

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase-server'
 import CustomerView from './CustomerView'
-import type { Store } from '@/types'
+import type { Product, Store } from '@/types'
 
 export default async function StorePage({
   params,
@@ -19,5 +19,16 @@ export default async function StorePage({
 
   if (!store) notFound()
 
-  return <CustomerView store={store as Store} />
+  const { data: products } = await supabase
+    .from('products')
+    .select('*')
+    .eq('store_id', store.id)
+    .eq('tagged', true)
+
+  return (
+    <CustomerView
+      store={store as Store}
+      products={(products ?? []) as Product[]}
+    />
+  )
 }

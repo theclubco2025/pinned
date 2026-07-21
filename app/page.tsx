@@ -4,7 +4,7 @@ import { supabaseConfigured } from '@/lib/supabase-config'
 
 export default async function Home() {
   if (!supabaseConfigured()) {
-    redirect('/demo')
+    redirect('/onboarding/step-2')
   }
 
   const supabase = await createClient()
@@ -13,6 +13,6 @@ export default async function Home() {
   if (user) {
     redirect('/dashboard')
   } else {
-    redirect('/onboarding')
+    redirect('/onboarding/step-2')
   }
 }

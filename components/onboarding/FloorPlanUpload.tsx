@@ -4,23 +4,35 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 
 interface Props {
-  storeId: string
+  storeId?: string
+  draftMode?: boolean
   onUploaded: (url: string) => void
 }
 
-export default function FloorPlanUpload({ storeId, onUploaded }: Props) {
+export default function FloorPlanUpload({ storeId, draftMode = false, onUploaded }: Props) {
   const [preview, setPreview] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
 
-  const onDrop = useCallback(
-    async (accepted: File[]) => {
-      const file = accepted[0]
-      if (!file) return
-
+  const processFile = useCallback(
+    async (file: File) => {
       setPreview(URL.createObjectURL(file))
       setUploading(true)
       setError('')
+
+      if (draftMode || !storeId) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          onUploaded(reader.result as string)
+          setUploading(false)
+        }
+        reader.onerror = () => {
+          setError('Could not read file')
+          setUploading(false)
+        }
+        reader.readAsDataURL(file)
+        return
+      }
 
       const form = new FormData()
       form.append('file', file)
@@ -36,7 +48,15 @@ export default function FloorPlanUpload({ storeId, onUploaded }: Props) {
       }
       setUploading(false)
     },
-    [storeId, onUploaded]
+    [storeId, draftMode, onUploaded]
+  )
+
+  const onDrop = useCallback(
+    async (accepted: File[]) => {
+      const file = accepted[0]
+      if (file) await processFile(file)
+    },
+    [processFile]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -53,16 +73,32 @@ export default function FloorPlanUpload({ storeId, onUploaded }: Props) {
           isDragActive ? 'border-foreground bg-elevated' : 'border-border hover:border-muted'
         }`}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} capture="environment" />
         {preview ? (
           <img src={preview} alt="Floor plan preview" className="max-h-48 rounded-lg object-contain" />
         ) : (
           <div className="text-center text-muted">
             <p className="text-sm font-medium">{isDragActive ? 'Drop it here' : 'Drag & drop your floor plan'}</p>
-            <p className="text-xs mt-1">or click to browse — PNG, JPG, PDF</p>
+            <p className="text-xs mt-1">or click to browse — PNG, JPG</p>
           </div>
         )}
       </div>
+
+      <label className="block">
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) processFile(file)
+          }}
+        />
+        <span className="flex w-full cursor-pointer items-center justify-center rounded-xl border border-border py-2.5 text-sm font-medium text-muted hover:bg-elevated">
+          Take a photo (mobile)
+        </span>
+      </label>
 
       {uploading && <p className="text-sm text-muted">Uploading…</p>}
       {error && <p className="text-sm text-red-500">{error}</p>}

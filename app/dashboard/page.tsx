@@ -3,6 +3,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase-server'
 import type { Product, Store } from '@/types'
 import DashboardQR from './DashboardQR'
+import AnalyticsPanel from './AnalyticsPanel'
+import BrandingPanel from './BrandingPanel'
+import StaffPinPanel from './StaffPinPanel'
+import PushNotifications from './PushNotifications'
 import ThemeToggle from '@/components/ThemeToggle'
 
 export default async function DashboardPage() {
@@ -48,7 +52,11 @@ export default async function DashboardPage() {
           </div>
         </div>
 
+        <AnalyticsPanel />
         <DashboardQR store={store as Store} />
+        <BrandingPanel store={store as Store} />
+        <StaffPinPanel store={store as Store} />
+        <PushNotifications />
 
         <div className="flex flex-col gap-3">
           <Link

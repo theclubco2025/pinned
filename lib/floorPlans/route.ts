@@ -99,8 +99,69 @@ function simplifyPath(path: RoutePoint[]): RoutePoint[] {
   return out
 }
 
-export function routeHint(plan: FloorPlan, targetX_pct: number, targetY_pct: number): string {
+/** Approximate walking distance of a route in floor-plan units. */
+export function routeLength(route: RoutePoint[]): number {
+  let d = 0
+  for (let i = 1; i < route.length; i++) {
+    d += Math.hypot(route[i].x - route[i - 1].x, route[i].y - route[i - 1].y)
+  }
+  return d
+}
+
+export interface RouteMeta {
+  steps: number
+  seconds: number
+  turns: number
+}
+
+/**
+ * Rough human-scale estimate. Templates use a ~600-unit-wide store; assume that
+ * spans ~30m of retail floor, giving ~0.05m per unit. A step ≈ 0.75m.
+ */
+export function routeMeta(plan: FloorPlan, route: RoutePoint[]): RouteMeta {
+  const metersPerUnit = 30 / plan.viewBox.w
+  const meters = routeLength(route) * metersPerUnit
+  const steps = Math.max(3, Math.round(meters / 0.75))
+  const seconds = Math.max(3, Math.round(meters / 1.3)) // ~1.3 m/s walking
+  let turns = 0
+  for (let i = 1; i < route.length - 1; i++) {
+    const ax = route[i].x - route[i - 1].x
+    const ay = route[i].y - route[i - 1].y
+    const bx = route[i + 1].x - route[i].x
+    const by = route[i + 1].y - route[i].y
+    if (Math.sign(ax) !== Math.sign(bx) || Math.sign(ay) !== Math.sign(by)) turns++
+  }
+  return { steps, seconds, turns }
+}
+
+/** Cardinal-ish direction of the first meaningful leg from the entrance. */
+function firstDirection(route: RoutePoint[]): 'ahead' | 'left' | 'right' | 'back' {
+  if (route.length < 2) return 'ahead'
+  const dx = route[1].x - route[0].x
+  const dy = route[1].y - route[0].y
+  if (Math.abs(dx) > Math.abs(dy)) return dx > 0 ? 'right' : 'left'
+  // entrance is at the bottom; moving up (negative dy) is "ahead"
+  return dy < 0 ? 'ahead' : 'back'
+}
+
+export function routeHint(
+  plan: FloorPlan,
+  targetX_pct: number,
+  targetY_pct: number,
+  route?: RoutePoint[]
+): string {
   const zone = findNearestZone(plan, targetX_pct, targetY_pct)
-  if (zone) return `Head to ${zone.label} — it's marked on the map.`
-  return 'Follow the route on the map to your item.'
+  const where = zone ? zone.label : 'your item'
+  if (!route || route.length < 2) return `Head to ${where} — it's marked on the map.`
+  const dir = firstDirection(route)
+  const meta = routeMeta(plan, route)
+  const lead =
+    dir === 'left'
+      ? 'Head in and bear left'
+      : dir === 'right'
+        ? 'Head in and bear right'
+        : dir === 'back'
+          ? 'Turn around'
+          : 'Head straight in'
+  return `${lead} toward ${where} — about ${meta.steps} steps, follow the glowing path.`
 }

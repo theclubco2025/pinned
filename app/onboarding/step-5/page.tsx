@@ -18,13 +18,16 @@ import type { Store } from '@/types'
 export default function Step5Page() {
   const router = useRouter()
   const [store, setStore] = useState<Store | null>(null)
-  const [draft] = useState<DraftStore>(() =>
-    typeof window !== 'undefined' ? loadDraft() : emptyDraft()
-  )
+  const [draft, setDraft] = useState<DraftStore>(emptyDraft())
   const [draftMode, setDraftMode] = useState(true)
   const [persisting, setPersisting] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(loadDraft())
+  }, [])
 
   useEffect(() => {
     fetch('/api/stores')

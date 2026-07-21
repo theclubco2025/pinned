@@ -52,6 +52,7 @@ Run SQL migrations in order against your Supabase project:
 2. `supabase/migrations/002_analytics_and_staff.sql`
 3. `supabase/migrations/003_branding_and_push.sql`
 4. `supabase/migrations/004_store_type.sql` — adds `store_type` on stores and optional `category` on products
+5. `supabase/migrations/005_floor_scan.sql` — adds `floor_scan` + `floor_plan` JSONB for the future LiDAR/native scan pipeline (safe to run now; optional)
 
 In Supabase Dashboard: SQL Editor → paste each file → Run.
 

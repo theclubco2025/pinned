@@ -47,6 +47,25 @@ flowchart LR
 
 **Dependencies:** Apple Developer Program, physical LiDAR hardware for QA, native build pipeline separate from Vercel.
 
+## What is already wired in code (native-ready)
+
+The web app ships today with the entire scan pipeline scaffolded, so the native
+companion can plug in with **zero web changes**:
+
+| Piece | Location | Status |
+|-------|----------|--------|
+| Scan data model (RoomPlan-shaped) | `lib/scan/types.ts` | Done |
+| Capability detection + native bridge contract (`window.PinnedNativeScan`) | `lib/scan/capability.ts` | Done |
+| RoomScan → `FloorPlan` converter | `lib/scan/convert.ts` | Done |
+| Authenticated upload endpoint | `app/api/stores/floor-scan/route.ts` | Done |
+| Persistence columns (`floor_scan`, `floor_plan`) | `supabase/migrations/005_floor_scan.sql` | Done |
+| Onboarding scan entry point (graceful web fallback) | `components/onboarding/ScanStorePanel.tsx` | Done |
+
+The only remaining work for real scanning is the **native capture app** that
+implements the `PinnedNativeScanBridge` interface and injects it into the web
+view (or POSTs a `RoomScan` to the endpoint). Everything downstream already
+consumes it.
+
 ## What we ship now (interim web accuracy)
 
 Without LiDAR, Pinned improves placement accuracy via:

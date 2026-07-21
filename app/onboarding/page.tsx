@@ -5,50 +5,29 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
+import FloorPlanSVG from '@/components/floorplan/FloorPlanSVG'
+import { getFloorPlan } from '@/lib/floorPlans/templates'
+import { computeRoute } from '@/lib/floorPlans/route'
 
 function HeroVisual() {
+  const plan = getFloorPlan('grocery')!
+  // Dairy zone center → the classic "where's the milk?" demo.
+  const pin = { x_pct: 12.5, y_pct: 25, label: 'Dairy · Aisle 1', active: true }
+  const route = computeRoute(plan, pin.x_pct, pin.y_pct)
+
   return (
     <div className="relative w-full max-w-[560px]">
-      <div className="absolute inset-0 rounded-none border border-white/10" />
-      <div className="relative overflow-hidden border border-white/10 bg-black/20 p-6">
-        <svg
-          viewBox="0 0 720 520"
-          className="h-auto w-full"
-          aria-hidden="true"
-        >
-          <rect x="0" y="0" width="720" height="520" fill="transparent" />
+      <div className="pointer-events-none absolute -inset-6 -z-10 rounded-[32px] bg-accent/10 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-3 shadow-2xl">
+        <FloorPlanSVG plan={plan} activePin={pin} route={route} />
+      </div>
 
-          {/* Outline */}
-          <rect x="18" y="18" width="684" height="484" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="2" />
-
-          {/* Zones */}
-          <rect x="40" y="44" width="190" height="170" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)" />
-          <rect x="248" y="44" width="190" height="110" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
-          <rect x="248" y="170" width="190" height="230" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
-          <rect x="456" y="44" width="95" height="356" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
-          <rect x="568" y="44" width="114" height="170" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)" />
-          <rect x="40" y="232" width="190" height="168" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
-
-          {/* Checkout bar */}
-          <rect x="40" y="424" width="642" height="54" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.10)" />
-
-          {/* Pins */}
-          <g className="pin-glow-svg">
-            <circle cx="130" cy="140" r="8" fill="rgba(255,255,255,.92)" />
-            <circle cx="334" cy="242" r="8" fill="rgba(255,255,255,.92)" />
-            <circle cx="622" cy="146" r="8" fill="rgba(255,255,255,.92)" />
-            <circle cx="520" cy="312" r="8" fill="rgba(255,255,255,.92)" />
-          </g>
-
-          {/* Subtle grid lines */}
-          <g stroke="rgba(255,255,255,.06)" strokeWidth="1">
-            <line x1="40" y1="120" x2="682" y2="120" />
-            <line x1="40" y1="300" x2="682" y2="300" />
-            <line x1="140" y1="44" x2="140" y2="478" />
-            <line x1="360" y1="44" x2="360" y2="478" />
-            <line x1="568" y1="44" x2="568" y2="478" />
-          </g>
-        </svg>
+      {/* floating conversation proof */}
+      <div className="fade-rise absolute -left-3 top-6 rounded-2xl border border-white/10 bg-black/70 px-3.5 py-2 text-sm text-white shadow-xl backdrop-blur">
+        Where&rsquo;s the oat milk?
+      </div>
+      <div className="fade-rise absolute -right-3 bottom-8 rounded-2xl border border-accent/30 bg-accent/20 px-3.5 py-2 text-sm text-white shadow-xl backdrop-blur [animation-delay:0.3s]">
+        Dairy · Aisle 1 — ~14 steps →
       </div>
     </div>
   )

@@ -15,24 +15,24 @@ import type { Store } from '@/types'
 
 export default function Step3Page() {
   const router = useRouter()
-  const [draft] = useState<DraftStore>(() =>
-    typeof window !== 'undefined' ? loadDraft() : emptyDraft()
-  )
+  // Deterministic SSR values; hydrate persisted draft after mount.
+  const [draft, setDraft] = useState<DraftStore>(emptyDraft())
   const [store, setStore] = useState<Store | null>(null)
-  const [text, setText] = useState(() => {
-    if (typeof window === 'undefined') return ''
-    const d = loadDraft()
-    if (d.products.length) return d.products.map(p => p.name).join('\n')
-    if (d.storeType) {
-      const pack = getStarterPack(d.storeType)
-      if (pack) return pack.products.join('\n')
-    }
-    return ''
-  })
+  const [text, setText] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [authenticated, setAuthenticated] = useState(false)
   const csvRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const d = loadDraft()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(d)
+    let seed = ''
+    if (d.products.length) seed = d.products.map(p => p.name).join('\n')
+    else if (d.storeType) seed = getStarterPack(d.storeType)?.products.join('\n') ?? ''
+    if (seed) setText(seed)
+  }, [])
 
   useEffect(() => {
     fetch('/api/stores')

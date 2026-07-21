@@ -16,53 +16,43 @@ interface Props {
   floorPlanUrl: string
   templateId?: string | null
   pin?: Pin | null
+  /** precomputed route; if omitted it's derived from the pin */
+  route?: RoutePoint[] | null
   showRoute?: boolean
 }
 
-export default function StoreMap({ floorPlanUrl, templateId, pin, showRoute = true }: Props) {
+export default function StoreMap({ floorPlanUrl, templateId, pin, route, showRoute = true }: Props) {
   const plan = getFloorPlan(templateId ?? null)
 
-  const route: RoutePoint[] | null = useMemo(() => {
+  const derivedRoute: RoutePoint[] | null = useMemo(() => {
+    if (route !== undefined && route !== null) return route
     if (!plan || !pin || !showRoute) return null
     return computeRoute(plan, pin.x_pct, pin.y_pct)
-  }, [plan, pin, showRoute])
+  }, [plan, pin, route, showRoute])
 
   if (plan) {
     return (
-      <div className="relative w-full rounded-xl overflow-hidden border border-border bg-surface transition-all duration-300">
-        <FloorPlanSVG
-          plan={plan}
-          activePin={pin ? { ...pin, active: true } : null}
-          route={route}
-        />
+      <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-[#101014] shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)]">
+        <FloorPlanSVG plan={plan} activePin={pin ? { ...pin, active: true } : null} route={derivedRoute} />
       </div>
     )
   }
 
   return (
-    <div className="relative w-full rounded-xl overflow-hidden border border-border bg-surface">
-      <img
-        src={floorPlanUrl}
-        alt="Store map"
-        className="w-full object-contain"
-        draggable={false}
-      />
+    <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-surface">
+      <img src={floorPlanUrl} alt="Store map" className="w-full object-contain" draggable={false} />
       {pin && (
         <div
-          className="absolute pointer-events-none pin-glow-svg"
-          style={{
-            left: `${pin.x_pct}%`,
-            top: `${pin.y_pct}%`,
-            transform: 'translate(-50%, -100%)',
-          }}
+          className="pointer-events-none absolute pin-glow-svg"
+          style={{ left: `${pin.x_pct}%`, top: `${pin.y_pct}%`, transform: 'translate(-50%, -100%)' }}
         >
           <div className="flex flex-col items-center gap-1">
             {pin.label && (
-              <span className="rounded-full bg-black/80 px-2 py-0.5 text-xs text-white shadow-md whitespace-nowrap">
+              <span className="whitespace-nowrap rounded-full bg-black/80 px-2 py-0.5 text-xs text-white shadow-md">
                 {pin.label}
               </span>
             )}
-            <div className="w-5 h-5 rounded-full bg-red-500 border-2 border-white shadow-lg animate-bounce" />
+            <div className="h-5 w-5 animate-bounce rounded-full border-2 border-white bg-red-500 shadow-lg" />
           </div>
         </div>
       )}

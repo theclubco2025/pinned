@@ -61,12 +61,58 @@ body {
 
 @keyframes routeDash {
   to {
-    stroke-dashoffset: -28;
+    stroke-dashoffset: -32;
   }
 }
 
 .route-animate {
-  animation: routeDash 1.2s linear infinite;
+  animation: routeDash 1s linear infinite;
+}
+
+@keyframes pinDrop {
+  0% {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(2px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* group animation via CSS transform on the translated <g>; uses transform-box */
+.pin-drop {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: pinDrop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes fadeRise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-rise {
+  animation: fadeRise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @media print {

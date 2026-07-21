@@ -6,6 +6,7 @@ import Link from 'next/link'
 import FloorPlanUpload from '@/components/onboarding/FloorPlanUpload'
 import FloorPlanTemplates from '@/components/onboarding/FloorPlanTemplates'
 import StoreTypePicker from '@/components/onboarding/StoreTypePicker'
+import ScanStorePanel from '@/components/onboarding/ScanStorePanel'
 import {
   loadDraft,
   saveDraft,
@@ -15,25 +16,31 @@ import {
 import { getTemplate } from '@/lib/floorTemplates'
 import type { StarterPackId } from '@/lib/starterPacks'
 import { createClient } from '@/lib/supabase-browser'
+import { supabaseConfigured } from '@/lib/supabase-config'
 
-type FloorMode = 'template' | 'upload'
+type FloorMode = 'template' | 'upload' | 'scan'
 type Step = 'type' | 'floor'
 
 export default function Step2Page() {
   const router = useRouter()
-  const [draft, setDraft] = useState<DraftStore>(() =>
-    typeof window !== 'undefined' ? loadDraft() : emptyDraft()
-  )
+  // Initialize deterministically for SSR; hydrate persisted draft after mount.
+  const [draft, setDraft] = useState<DraftStore>(emptyDraft())
   const [authenticated, setAuthenticated] = useState(false)
   const [storeId, setStoreId] = useState<string | null>(null)
-  const [step, setStep] = useState<Step>(() =>
-    typeof window !== 'undefined' && loadDraft().storeType ? 'floor' : 'type'
-  )
+  const [step, setStep] = useState<Step>('type')
   const [floorMode, setFloorMode] = useState<FloorMode>('template')
   const [creatingStore, setCreatingStore] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    const d = loadDraft()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(d)
+    if (d.storeType) setStep('floor')
+  }, [])
+
+  useEffect(() => {
+    if (!supabaseConfigured()) return
     createClient()
       .auth.getUser()
       .then(({ data: { user } }) => {
@@ -156,20 +163,28 @@ export default function Step2Page() {
           </div>
 
           <div>
-            <div className="mb-2 flex rounded-xl border border-border bg-surface p-1 text-sm">
+            <div className="mb-3 grid grid-cols-3 rounded-xl border border-border bg-surface p-1 text-sm">
               <button
                 type="button"
                 onClick={() => setFloorMode('template')}
-                className={`flex-1 rounded-lg py-2 font-medium ${floorMode === 'template' ? 'bg-foreground text-background' : 'text-muted'}`}
+                className={`rounded-lg py-2 font-medium transition-colors ${floorMode === 'template' ? 'bg-foreground text-background' : 'text-muted'}`}
               >
-                Use a template
+                Template
               </button>
               <button
                 type="button"
                 onClick={() => setFloorMode('upload')}
-                className={`flex-1 rounded-lg py-2 font-medium ${floorMode === 'upload' ? 'bg-foreground text-background' : 'text-muted'}`}
+                className={`rounded-lg py-2 font-medium transition-colors ${floorMode === 'upload' ? 'bg-foreground text-background' : 'text-muted'}`}
               >
-                Upload photo
+                Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setFloorMode('scan')}
+                className={`flex items-center justify-center gap-1 rounded-lg py-2 font-medium transition-colors ${floorMode === 'scan' ? 'bg-foreground text-background' : 'text-accent'}`}
+              >
+                Scan
+                <span className="rounded bg-accent/20 px-1 text-[9px] font-bold uppercase tracking-wide text-accent">LiDAR</span>
               </button>
             </div>
 
@@ -178,6 +193,8 @@ export default function Step2Page() {
                 selectedId={draft.templateId}
                 onSelect={(id, url) => updateDraft({ templateId: id, storeType: id as StarterPackId, floorPlanUrl: url })}
               />
+            ) : floorMode === 'scan' ? (
+              <ScanStorePanel />
             ) : authenticated && storeId ? (
               <FloorPlanUpload
                 storeId={storeId}

@@ -42,6 +42,23 @@ body {
   color: var(--foreground);
 }
 
+@keyframes pinGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.pin-glow-svg {
+  filter:
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.35))
+    drop-shadow(0 0 24px rgba(255, 255, 255, 0.18));
+  animation: pinGlowPulse 3.5s ease-in-out infinite;
+}
+
 @media print {
   body * {
     visibility: hidden;

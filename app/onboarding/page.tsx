@@ -6,6 +6,54 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-browser'
 
+function HeroVisual() {
+  return (
+    <div className="relative w-full max-w-[560px]">
+      <div className="absolute inset-0 rounded-none border border-white/10" />
+      <div className="relative overflow-hidden border border-white/10 bg-black/20 p-6">
+        <svg
+          viewBox="0 0 720 520"
+          className="h-auto w-full"
+          aria-hidden="true"
+        >
+          <rect x="0" y="0" width="720" height="520" fill="transparent" />
+
+          {/* Outline */}
+          <rect x="18" y="18" width="684" height="484" fill="none" stroke="rgba(255,255,255,.14)" strokeWidth="2" />
+
+          {/* Zones */}
+          <rect x="40" y="44" width="190" height="170" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)" />
+          <rect x="248" y="44" width="190" height="110" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
+          <rect x="248" y="170" width="190" height="230" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
+          <rect x="456" y="44" width="95" height="356" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
+          <rect x="568" y="44" width="114" height="170" fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.10)" />
+          <rect x="40" y="232" width="190" height="168" fill="rgba(255,255,255,.03)" stroke="rgba(255,255,255,.10)" />
+
+          {/* Checkout bar */}
+          <rect x="40" y="424" width="642" height="54" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.10)" />
+
+          {/* Pins */}
+          <g className="pin-glow-svg">
+            <circle cx="130" cy="140" r="8" fill="rgba(255,255,255,.92)" />
+            <circle cx="334" cy="242" r="8" fill="rgba(255,255,255,.92)" />
+            <circle cx="622" cy="146" r="8" fill="rgba(255,255,255,.92)" />
+            <circle cx="520" cy="312" r="8" fill="rgba(255,255,255,.92)" />
+          </g>
+
+          {/* Subtle grid lines */}
+          <g stroke="rgba(255,255,255,.06)" strokeWidth="1">
+            <line x1="40" y1="120" x2="682" y2="120" />
+            <line x1="40" y1="300" x2="682" y2="300" />
+            <line x1="140" y1="44" x2="140" y2="478" />
+            <line x1="360" y1="44" x2="360" y2="478" />
+            <line x1="568" y1="44" x2="568" y2="478" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 function friendlyError(message: string): string {
   const m = message.toLowerCase()
   if (m.includes('rate') || m.includes('exceeded') || m.includes('limit')) {
@@ -141,73 +189,132 @@ export default function OnboardingPage() {
   )
 
   const inputClass =
-    'w-full rounded-xl border border-border bg-surface px-4 py-3 text-sm text-foreground outline-none focus:border-foreground'
+    'w-full border-b border-white/15 bg-transparent px-0 py-3 text-[15px] text-white placeholder:text-white/35 outline-none focus:border-white/50'
   const primaryBtn =
-    'w-full rounded-xl bg-foreground py-3 text-sm font-medium text-background hover:opacity-90 disabled:opacity-40'
+    'w-full bg-white px-6 py-3.5 text-sm font-medium text-black hover:bg-white/90 disabled:opacity-40'
 
   if (mode === 'landing') {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-        <div className="w-full max-w-sm">
-          <div className="mb-8">
-            <div className="mb-5 flex justify-center rounded-2xl bg-black px-6 py-8">
-              <Image src="/logo.png" alt="Pinned" width={200} height={63} priority />
+      <main className="min-h-screen bg-background text-white">
+        <div className="mx-auto w-full max-w-7xl px-6 md:px-12">
+          {/* Top bar */}
+          <div className="flex items-center justify-between pt-10">
+            <div className="flex items-center gap-3">
+              <Image src="/logo.png" alt="Pinned" width={92} height={29} priority />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Your store. Askable.</h1>
-            <p className="mt-3 text-muted">
-              Customers scan a QR, ask where anything is, and get a pin on your floor plan.
-              Set it up in minutes — no account required to try.
-            </p>
-            <p className="mt-3 text-xs text-faint">
-              Grocery · hardware · pharmacy · garden center · liquor · bookstore
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Link
-              href="/onboarding/step-2"
-              className="w-full rounded-xl bg-foreground py-3.5 text-center text-sm font-medium text-background hover:opacity-90"
-            >
-              Set up your store — try free →
-            </Link>
             <button
               type="button"
               onClick={() => setMode('login')}
-              className="w-full rounded-xl border border-border py-3 text-sm font-medium text-muted hover:bg-elevated hover:text-foreground"
+              className="text-sm text-white/60 hover:text-white"
             >
-              Log in to your dashboard
+              Log in
             </button>
           </div>
 
-          <ul className="mt-8 space-y-2 text-sm text-muted">
-            <li className="flex gap-2"><span className="text-faint">1.</span> Name your store & pick a floor plan</li>
-            <li className="flex gap-2"><span className="text-faint">2.</span> Paste products, pin the top ones</li>
-            <li className="flex gap-2"><span className="text-faint">3.</span> Print the QR — customers find anything</li>
-          </ul>
+          {/* Hero */}
+          <section className="grid items-start gap-12 pt-24 pb-16 md:grid-cols-[1.15fr_.85fr] md:pt-[120px] md:pb-[80px]">
+            <div className="max-w-2xl">
+              <h1 className="text-pretty text-[clamp(2.75rem,6vw,4.5rem)] font-medium leading-[1.02] tracking-[-0.02em]">
+                Every aisle, every product — pinned for your customers.
+              </h1>
+              <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-white/60 md:text-xl">
+                Customers scan a QR and instantly see where anything is located in your store.
+              </p>
+
+              <div className="mt-10 flex flex-col items-start gap-4">
+                <Link
+                  href="/onboarding/step-2"
+                  className="inline-flex items-center justify-center bg-white px-6 py-3.5 text-sm font-medium text-black hover:bg-white/90"
+                >
+                  Start your store
+                </Link>
+                <p className="text-sm text-white/40">
+                  Grocery · hardware · pharmacy · garden center · liquor · bookstore
+                </p>
+              </div>
+            </div>
+
+            <div className="justify-self-end">
+              <HeroVisual />
+            </div>
+          </section>
+
+          {/* Narrative steps */}
+          <section className="pt-24 pb-16 md:pt-[120px] md:pb-[80px]">
+            <h2 className="text-pretty text-[clamp(2rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.01em]">
+              Set up in minutes
+            </h2>
+
+            <div className="mt-10 max-w-3xl border-t border-white/10">
+              <div className="flex items-start justify-between gap-8 border-b border-white/10 py-8">
+                <div>
+                  <p className="text-xl font-medium text-white">Choose your floor plan</p>
+                  <p className="mt-2 text-[18px] leading-relaxed text-white/60">
+                    Use a template or upload a photo of your layout.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start justify-between gap-8 border-b border-white/10 py-8">
+                <div>
+                  <p className="text-xl font-medium text-white">Pin your top products</p>
+                  <p className="mt-2 text-[18px] leading-relaxed text-white/60">
+                    Start with your best-sellers. Tag the rest anytime.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start justify-between gap-8 py-8">
+                <div>
+                  <p className="text-xl font-medium text-white">Print your QR for customers</p>
+                  <p className="mt-2 text-[18px] leading-relaxed text-white/60">
+                    Post it by the entrance. Customers ask, the map answers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-8">
-          <div className="mb-5 flex justify-center rounded-2xl bg-black px-6 py-8">
-            <Image src="/logo.png" alt="Pinned" width={200} height={63} priority />
-          </div>
-          <h1 className="text-xl font-bold">Welcome back</h1>
-          <p className="mt-2 text-sm text-muted">Log in to manage your store map.</p>
+    <main className="min-h-screen bg-background text-white">
+      <div className="mx-auto w-full max-w-7xl px-6 md:px-12">
+        <div className="flex items-center justify-between pt-10">
+          <Image src="/logo.png" alt="Pinned" width={92} height={29} priority />
+          <button
+            type="button"
+            onClick={() => { setMode('landing'); reset() }}
+            className="text-sm text-white/60 hover:text-white"
+          >
+            Back
+          </button>
         </div>
 
+        <section className="grid items-start gap-12 pt-24 pb-16 md:grid-cols-[1.15fr_.85fr] md:pt-[120px] md:pb-[80px]">
+          <div className="max-w-xl">
+            <h2 className="text-pretty text-[clamp(2rem,4vw,2.5rem)] font-medium leading-tight tracking-[-0.01em]">
+              Welcome back
+            </h2>
+            <p className="mt-4 text-[18px] leading-relaxed text-white/60">
+              Log in to manage your store map.
+            </p>
+          </div>
+          <div className="justify-self-end">
+            <HeroVisual />
+          </div>
+        </section>
+
         {method === 'password' ? (
-          <div className="flex flex-col gap-4">
-            <form onSubmit={handleLogin} className="flex flex-col gap-3">
+          <div className="max-w-md border-t border-white/10 pt-10 pb-16">
+            <form onSubmit={handleLogin} className="flex flex-col gap-6">
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder="Email"
                 autoComplete="email"
                 required
                 className={inputClass}
@@ -229,19 +336,19 @@ export default function OnboardingPage() {
 
             <button
               onClick={() => { setMethod('link'); reset() }}
-              className="text-center text-xs text-faint underline underline-offset-2 hover:text-muted"
+              className="mt-6 text-left text-sm text-white/60 hover:text-white"
             >
-              Email me a magic link instead →
+              Use a magic link instead
             </button>
           </div>
         ) : !sent ? (
-          <div className="flex flex-col gap-4">
-            <form onSubmit={sendLink} className="flex flex-col gap-3">
+          <div className="max-w-md border-t border-white/10 pt-10 pb-16">
+            <form onSubmit={sendLink} className="flex flex-col gap-6">
               <input
                 type="email"
                 value={email}
                 onChange={e => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder="Email"
                 required
                 className={inputClass}
               />
@@ -252,29 +359,27 @@ export default function OnboardingPage() {
             </form>
             <button
               onClick={() => { setMethod('password'); reset() }}
-              className="text-center text-xs text-faint underline underline-offset-2 hover:text-muted"
+              className="mt-6 text-left text-sm text-white/60 hover:text-white"
             >
-              ← Use email + password instead
+              Use email + password instead
             </button>
           </div>
         ) : (
-          <div className="flex flex-col gap-5">
-            <div className="rounded-xl border border-border bg-elevated px-4 py-4 text-center">
-              <p className="text-sm font-medium text-foreground">Check your email</p>
-              <p className="mt-1 text-xs text-muted">
-                Sent to {email}. Click the link, or enter the 6-digit code below.
-              </p>
-            </div>
+          <div className="max-w-md border-t border-white/10 pt-10 pb-16">
+            <p className="text-sm font-medium text-white">Check your email</p>
+            <p className="mt-2 text-[18px] leading-relaxed text-white/60">
+              Sent to {email}. Click the link, or enter the 6-digit code below.
+            </p>
 
-            <form onSubmit={verifyCode} className="flex flex-col gap-3">
-              <label className="text-sm font-medium text-foreground">Enter your code</label>
+            <form onSubmit={verifyCode} className="mt-8 flex flex-col gap-6">
+              <label className="text-sm font-medium text-white/60">Enter your code</label>
               <input
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 value={code}
                 onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="123456"
-                className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-center font-mono text-lg tracking-[0.3em] text-foreground outline-none focus:border-foreground"
+                className="w-full border-b border-white/15 bg-transparent px-0 py-3 text-center font-mono text-xl tracking-[0.3em] text-white placeholder:text-white/25 outline-none focus:border-white/50"
               />
               <button type="submit" disabled={verifying || code.length < 6} className={primaryBtn}>
                 {verifying ? 'Verifying…' : 'Verify & continue'}
@@ -284,24 +389,17 @@ export default function OnboardingPage() {
 
             <button
               onClick={() => { setSent(false); setCode(''); reset() }}
-              className="text-xs text-faint underline underline-offset-2 hover:text-muted"
+              className="mt-6 text-left text-sm text-white/60 hover:text-white"
             >
               Use a different email
             </button>
           </div>
         )}
 
-        <div className="mt-6 flex flex-col gap-2 text-center">
-          <Link href="/onboarding/step-2" className="text-sm font-medium underline underline-offset-2">
-            New here? Set up a store without logging in →
+        <div className="pb-16">
+          <Link href="/onboarding/step-2" className="text-sm text-white/60 hover:text-white">
+            New here? Start your store →
           </Link>
-          <button
-            type="button"
-            onClick={() => { setMode('landing'); reset() }}
-            className="text-xs text-faint underline underline-offset-2 hover:text-muted"
-          >
-            ← Back
-          </button>
         </div>
       </div>
     </main>
